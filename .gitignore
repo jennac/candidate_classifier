@@ -1,0 +1,12 @@
+wget_pages
+webpages_ex*
+done*
+*.pyc
+*.swp
+lib/
+local/
+ghost/
+bin/
+include/
+*.swo
+*.jar
