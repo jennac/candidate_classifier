@@ -10,3 +10,13 @@ bin/
 include/
 *.swo
 *.jar
+*.csv
+fblogin.py
+non/nonwebpages*
+fb/srsplit/fullfbsearch_results_combined*
+fb/fbsearch_results*
+fb/bkp
+fb/dummy
+fb/shuf_fsrc
+cookies
+.~lock*

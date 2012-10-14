@@ -7,7 +7,7 @@ from selenium import webdriver
 from selenium.common.exceptions import WebDriverException, TimeoutException
 from bs4 import BeautifulSoup
 import re, chardet
-
+pass_errors=False
 def fetchplain(url):
     print 'getting {url}'.format(url=url)
     try:
@@ -140,8 +140,11 @@ def getframedata(url):
         if error.message == 'timed out':
             n = 'TIMEDOUT'
         else:
-            import traceback; print traceback.format_exc()
-            raise error
+            if pass_errors:
+                n = 'ERROR'
+            else:
+                import traceback; print traceback.format_exc()
+                raise error
     #return n.decode(d['encoding']).encode('utf-8'),
     return n,
 

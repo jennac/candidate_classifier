@@ -24,24 +24,33 @@ with utffile('searchterms.csv') as f:
             special_terms.append(s)
         elif ' ' in s:
             #cursor.execute("select identifier, sitetext ilike '%{s}%' from sites_ajax_joined;".format(s=s))
-            cursor.execute("select identifier, sitevec @@ plainto_tsquery('{s}') from new_sites_plain_joined;".format(s=s))
-            for k,v in cursor.fetchall():
-                results[k].append(int(v))
+            cursor.execute("select uid, class, website, sitevec @@ plainto_tsquery('{s}') from pages_for_class_train_vec;".format(s=s))
+            for k,c,w,v in cursor.fetchall():
+                results[(k,c,w)].append(int(v))
         else:
-            cursor.execute("select identifier, sitevec @@ to_tsquery('{s}') from new_sites_plain_joined;".format(s=s))
-            for k,v in cursor.fetchall():
-                results[k].append(int(v))
-cursor.execute('DROP TABLE IF EXISTS classifiers;')
-cursor.execute('CREATE TABLE classifiers(uid varchar(10), classifier text);')
-sql = "COPY classifiers(uid, classifier) from STDOUT WITH CSV"
+            cursor.execute("select uid, class, website, sitevec @@ to_tsquery('{s}') from pages_for_class_train_vec;".format(s=s))
+            for k,c,w,v in cursor.fetchall():
+                results[(k,c,w)].append(int(v))
+cursor.execute('DROP TABLE IF EXISTS pages_classed;')
+cursor.execute('CREATE TABLE pages_classed(uid varchar(10), class varchar(10), website text, classifier text);')
+sql = "COPY pages_classed(uid, class, website, classifier) from STDOUT WITH CSV"
 buf = StringIO()
 writer = csv.writer(buf)
+sum_true_vecs = []
+sum_false_vecs = []
 for k,v in results.iteritems():
-    if all(map(lambda x: x==0,v)):
-        writer.writerow([k,'none'])
+    k,c,w = k
+    if c == 'True':
+        sum_true_vecs.append(sum(v))
     else:
-        writer.writerow([k,repr(v)])
+        sum_false_vecs.append(sum(v))
+    if all(map(lambda x: x==0,v)):
+        writer.writerow([k,c,w,'none'])
+    else:
+        writer.writerow([k,c,w,repr(v)])
 buf.seek(0)
 cursor.copy_expert(sql, buf)
 connection.commit()
 connection.close()
+print sum(sum_true_vecs)/len(sum_true_vecs)
+print sum(sum_false_vecs)/len(sum_false_vecs)
