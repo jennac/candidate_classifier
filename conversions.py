@@ -1,5 +1,8 @@
 import re
 from collections import defaultdict
+from state_map import state_map
+import requests
+import urllib2
 district_type_dict = defaultdict(lambda:(),{
         'congressional_district':('congress','congressional','congressional district'),
         'state_senate_district':('state senate','senate','senator','state senator'),
@@ -42,3 +45,76 @@ def clean_name(name):
 
 def search_to_feature_key(search):
     return ''.join(re.split(r'\s+', search)) + 'biptermspecial'
+
+def state_from_abbr(state):
+    return state_map[state]
+
+def strip_and_std(url):
+    webpage_stripped = re.match(r'(?:https?://)?(?:www\.)?(?P<content>.+)',url).groupdict()['content'].rstrip('/')
+    return 'http://www.'+url
+
+def child_page(url, child, strip=False):
+    if strip:
+        webpage_stripped = strip_scheme_www(strip_queries(url))
+        #webpage_no_queries = urllib2.urlparse.urlparse(webpage)
+        #webpage_stripped = re.match(r'(?:www\.)?(?P<content>.+)',webpage_no_queries.netloc + webpage_no_queries.path).groupdict()['content'].rstrip('/')
+    else:
+        webpage_stripped = strip_scheme_www(url)
+        #webpage_stripped = re.match(r'(?:https?://)?(?:www\.)?(?P<content>.+)',url).groupdict()['content'].rstrip('/')
+    child_patt = re.compile(r'^https?://(?:www\.)?{webpage}[/?].+'.format(webpage=re.escape(webpage_stripped.lower())))
+    return child_patt.match(child)
+
+def equal_page(url, child, strip=False):
+    if strip:
+        webpage_stripped = strip_scheme_www(strip_queries(url))
+        #webpage_no_queries = ul.urlparse.urlparse(webpage)
+        #webpage_stripped = re.match(r'(?:www\.)?(?P<content>.+)',webpage_no_queries.netloc + webpage_no_queries.path).groupdict()['content'].rstrip('/')
+    else:
+        webpage_stripped = strip_scheme_www(url)
+        #webpage_stripped = re.match(r'(?:https?://)?(?:www\.)?(?P<content>.+)',url).groupdict()['content'].rstrip('/')
+    equal_patt = re.compile(r'^https?://(?:www\.)?{webpage}'.format(webpage=re.escape(webpage_stripped.lower())))
+    return equal_patt.match(child)
+
+def child_or_equal_page(url, child, strip=False):
+    if strip:
+        webpage_stripped = strip_scheme_www(strip_queries(url))
+        #webpage_no_queries = ul.urlparse.urlparse(webpage)
+        #webpage_stripped = re.match(r'(?:www\.)?(?P<content>.+)',webpage_no_queries.netloc + webpage_no_queries.path).groupdict()['content'].rstrip('/')
+    else:
+        webpage_stripped = strip_scheme_www(url)
+        #webpage_stripped = re.match(r'(?:https?://)?(?:www\.)?(?P<content>.+)',url).groupdict()['content'].rstrip('/')
+    child_or_equal_patt = re.compile(r'^https?://(?:www\.)?{webpage}.*'.format(webpage=re.escape(webpage_stripped.lower())))
+    return child_or_equal_patt.match(child)
+
+def strip_queries(url):
+    parsed = urllib2.urlparse.urlparse(url)
+    return parsed.scheme + '://' + parsed.netloc + parsed.path
+
+def strip_scheme_www(url):
+    webpage_stripped = re.match(r'(?:https?://)?(?:www\.)?(?P<content>.+)',url).groupdict()['content'].rstrip('/')
+    return webpage_stripped
+
+def page_relation(test_page,strip, *args):
+    true_urls = filter(lambda child: not any(map(lambda url: child_page(url,(strip_queries(child) if strip else child),strip), args)),args)
+    if any(map(lambda parent: child_page(parent,test_page,strip),true_urls)):
+        return 'Child'
+    elif any(map(lambda parent: equal_page(parent,test_page,strip),true_urls)):
+        return 'True'
+    elif any(map(lambda child: child_page(test_page,child,strip),true_urls)):
+        return 'Parent'
+    else:
+        return 'False'
+
+
+def get_redirect(url):
+    try:
+        for i in range(num_tries):
+            site = requests.get(url)
+            if site.status_code == 200:
+                redirect_url = site.url
+                break
+        else:
+            redirect_url =  '404'
+    except Exception as e:
+        redirect_url = 'ERROR'
+    return redirect_url

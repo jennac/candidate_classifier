@@ -11,6 +11,7 @@ include/
 *.swo
 *.jar
 *.csv
+*.png
 fblogin.py
 non/nonwebpages*
 fb/srsplit/fullfbsearch_results_combined*

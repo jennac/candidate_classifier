@@ -7,9 +7,10 @@
 import logging
 import numpy as np
 from optparse import OptionParser
-import sys, csv, re
+import sys, csv, re, math, operator
 from time import time
-import pylab as pl
+from pylab import *
+from pylab import clf as clearfig
 
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -77,16 +78,18 @@ class SiteData:
         self.link = []
         self.target_names = set()
         category_dict = dict((categories[i],i) for i in range(len(categories)))
-        transform = lambda cl: 'TrueCombined' if cl=='ChildCombined' else cl
+        transform = lambda cl: 'TrueCombined' if cl=='ChildCombined' or cl=='ParentCombined' else cl
         csvr = csv.DictReader(open(filename))
         for l in csvr:
+            if not candidate_data_dict.has_key(l['uid']):
+                continue
             candidate_data = dict(candidate_data_dict[l['uid']])
-            candidate_data.update({'uid':l['uid'],'sitetext':l['sitetext']})
+            candidate_data.update({'uid':l['uid'],'link':l['link'],'sitetext':l['sitetext']})
             self.data.append(repr(candidate_data))
             self.target.append(category_dict[transform(l['class'])])
-            self.target_names.add(l['class'])
+            self.target_names.add(transform(l['class']))
             self.link.append(l['link'])
-        self.data.append(repr({'uid':'','name':'','state':'','electoral_district_type':'','electoral_district_name':'','sitetext':''}))
+        self.data.append(repr({'uid':'','link':'websitemywebsite','name':'','state':'','electoral_district_type':'','electoral_district_name':'','sitetext':''}))
         self.target.append(2)
         self.target_names.add('grooon')
         self.link.append('nothing')
@@ -140,11 +143,16 @@ basic_vectorizer = TfidfVectorizer(sublinear_tf=True, max_df=0.5, use_idf=False,
 basic_analyze = basic_vectorizer.build_analyzer()
 with utffile('searchterms.csv') as f:
     for s in f:
-
         if s.startswith('<'):
             special_terms.append(s.strip('<>'))
         else:
             vocabulary.append(s.decode('utf-8').strip())
+fb_page_data = {}
+with open('fb/facebookpolsurls_bkp.csv') as f:
+    csvr = csv.DictReader(f)
+    for l in csvr:
+        fb_page_data.update({l['url']:{'fans':l['Fan Count'],'authentic':l['Authentic Category']}})
+
 def analyze(s):
     d=eval(s)
     special_keys = []
@@ -152,6 +160,7 @@ def analyze(s):
     electoral_district_type = d['electoral_district_type']
     electoral_district_name = d['electoral_district_name']
     state = d['state']
+    link = d['link']
     text = d['sitetext'].lower().decode('utf-8')
     name, last,first = conv.clean_name(name)
     for v in vocabulary:
@@ -177,6 +186,10 @@ def analyze(s):
     special_keys += [conv.search_to_feature_key('voteforlast')]*text.count('vote for '+last.lower())
     special_keys += [conv.search_to_feature_key('voteforlast')]*text.count('votefor'+last.lower())
     special_keys += [conv.search_to_feature_key('voteforlast')]*text.count('vote4'+last.lower())
+    try:
+        special_keys += [conv.search_to_feature_key('politicianpublicfigure')]*len(re.findall(r'{last}.{{1,50}}(?:public figure|politician)'.format(last=last.lower().strip('()')), text))
+    except:
+        import pdb;pdb.set_trace()
     text.replace(name.lower(),'')
     text.replace(last.lower(),'')
     text.replace(first.lower(),'')
@@ -184,6 +197,13 @@ def analyze(s):
     special_keys += [conv.search_to_feature_key('officename')]*sum(text.count(on.lower()) for on in conv.office_names)
     special_keys += [conv.search_to_feature_key('electoral_district_name')]*text.count(electoral_district_name.lower())
     special_keys += [conv.search_to_feature_key('state')]*text.count(state.lower())
+    if fb_page_data.has_key(conv.strip_and_std(link)):
+        fb_page_dict = fb_page_data[conv.strip_and_std(link)]
+        special_keys.append(conv.search_to_feature_key('fbdata'))
+        fans = int(math.log(int(fb_page_dict['fans'])))
+        special_keys += [conv.search_to_feature_key('fbdata')]*fans
+        if fb_page_dict['authentic'] == 'Authentic':
+            special_keys.append(conv.search_to_featureKey('fbauthentic'))
     name_key = conv.search_to_feature_key('name')
     last_key = conv.search_to_feature_key('last')
     first_key = conv.search_to_feature_key('first')
@@ -394,7 +414,7 @@ results.append(benchmark(L1LinearSVC()))
 
 
 # make some plots
-
+"""
 indices = np.arange(len(results))
 
 results = [[x[i] for x in results] for i in xrange(4)]
@@ -413,6 +433,7 @@ for i, c in  zip(indices, clf_names):
     pl.text(-.3, i, c)
 
 pl.show()
+"""
 aggregate_confusions = {}
 aggregate_score_confusions = {}
 num_preds = len(test_predictions)
@@ -420,24 +441,69 @@ for i in range(num_preds+1):
     aggregate_confusions[i] = np.zeros((3,3))
 for i in map(lambda x:x/10., range(12)):
     aggregate_score_confusions[i] = np.zeros((3,3))
+conditional_probabilities = {}
+for i in range(12):
+    conditional_probabilities[i] = np.zeros((3,3))
+
+def get_fit(data):
+    X = arange(data.size)
+    sorted_data = np.sort(data)
+    u = float(sum(data))/data.size
+    s = float(sum(map(lambda x: (x-u)**2,data)))/data.size
+    if s == 0:
+        def pdf(t):
+            try:
+                return map(lambda t_elem: 1 if t_elem == u else 0,t)
+            except TypeError:
+                return 1 if t == u else 0
+        return pdf
+    return lambda t: exp(-(t-u)**2/(2*s))/np.sqrt(2*np.pi*s)
+
+def class_prob(conditional_probabilties, class_probabilities, vector, fits, score):
+    alpha = .001
+    class_probs = []
+    denominator = sum(class_probabilities[i]*reduce(operator.mul, ((conditional_probabilities[j][i][vector[j]] + alpha) for j in range(len(vector))))*fits[i](score) for i in range(len(class_probabilities)))
+    for i in range(len(class_probabilities)):
+        numerator = class_probabilities[i]*reduce(operator.mul, ((conditional_probabilities[j][i][vector[j]] + alpha) for j in range(len(vector))))*fits[i](score)
+        class_probs.append(float(numerator)/denominator)
+    return class_probs
+
 with open('fb/test_classifier_outs.csv','w') as clouts, (open('fb/full_classifier_outs.csv','w') if opts.full else open('fb/dummy')) as flouts:
     csvw = csv.writer(clouts)
-    csvw.writerow(['sum']+header + ['class','average_score','uid','sitetext'])
+    csvw.writerow(['trueprob','sum']+header + ['class','average_score','uid','link','sitetext'])
     df_avgs = map(lambda a:sum(a)/len(a),zip(*test_df))
     test_predictions.append(df_avgs)
     test_predictions.append(data_test.data)
     test_predictions.append(data_test.target)
+    test_predictions.append(data_test.link)
+    fits = []
+    score_dists = []
+    for i in range(3):
+        score_dists.append(np.array(df_avgs)[np.array(map(lambda x:x==i,data_test.target))])
+        fits.append(get_fit(score_dists[i]))
+        hist(score_dists[i],normed=1)
+        plot(arange(min(score_dists[i]),max(score_dists[i]),.01),fits[i](arange(min(score_dists[i]),max(score_dists[i]),.01)))
+        savefig('hist{i}.png'.format(i=i))
+        clearfig()
+    for i in range(12):
+        tps = test_predictions[i]
+        for j in range(3):
+            class_slice = tps[np.array(map(lambda x:x==j,data_test.target))]
+            for k in range(3):
+                conditional_probabilities[i][j][k] = float(len(class_slice[np.array(map(lambda x:x==k, class_slice))]))/float(len(class_slice))
+    class_probabilities = [len(filter(lambda x:x==i,data_test.target)) for i in range(3)]
     for r in zip(*test_predictions):
-        csvw.writerow([sum(r[:-3])]+map(str,r[:-3]) + [r[-1],r[-3],eval(r[-2])['uid'],eval(r[-2])['sitetext']])
+        cps = class_prob(conditional_probabilities, class_probabilities, r[:-4],fits, r[-4])
+        csvw.writerow(['{0:1.5f}'.format(cps[1]),sum(r[:-4])]+map(str,r[:-4]) + [r[-2],r[-4],eval(r[-3])['uid'],r[-1],eval(r[-3])['sitetext']])
         for i in range(num_preds+1):
             cl = sum(r[:num_preds]) >= i
-            aggregate_confusions[i][r[-1]][cl] += 1
+            aggregate_confusions[i][r[-2]][cl] += 1
         for i in map(lambda x:x/10., range(12)):
-            cl = r[-3] >= i
-            aggregate_score_confusions[i][r[-1]][cl] += 1
+            cl = r[-4] >= i
+            aggregate_score_confusions[i][r[-2]][cl] += 1
     if opts.full:
         csvfull = csv.writer(flouts)
-        csvfull.writerow(['sum']+header + ['average_score','uid','link'])
+        csvfull.writerow(['trueprobs','sum']+header + ['average_score','uid','link'])
         for file_counter in range(num_full):
             print len(zip(*full_predictions[file_counter]))
             fulldf_avgs = map(lambda a:sum(a)/len(a),zip(*full_df[file_counter]))
@@ -448,7 +514,8 @@ with open('fb/test_classifier_outs.csv','w') as clouts, (open('fb/full_classifie
             print len(zip(*full_predictions[file_counter]))
             try:
                 for r in zip(*full_predictions[file_counter]):
-                    csvfull.writerow([sum(r[:-3])]+map(str,r[:-3]) + [r[-3],eval(r[-1])['uid'],r[-2]])
+                    cps = class_prob(conditional_probabilities, class_probabilities, r[:-3],fits, r[-3])
+                    csvfull.writerow(['{0:1.5f}'.format(cps[1]),sum(map(lambda x: -1 if x==2 else x,r[:-3]))]+map(str,r[:-3]) + [r[-3],eval(r[-1])['uid'],r[-2]])
             except Exception as error:
                 import pdb;pdb.set_trace()
 for k,v in aggregate_confusions.iteritems():
