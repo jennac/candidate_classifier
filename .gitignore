@@ -1,6 +1,7 @@
 wget_pages
 webpages_ex*
 done*
+*~
 *.pyc
 *.swp
 lib/
@@ -19,5 +20,7 @@ fb/fbsearch_results*
 fb/bkp
 fb/dummy
 fb/shuf_fsrc
+web/srsplit/
+twitter/srsplit
 cookies
 .~lock*

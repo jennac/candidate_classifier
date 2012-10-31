@@ -21,14 +21,13 @@ def getlinks(candidate, webpage, state, district_type, district_name):
     search_urls = []
     extra_children_searches = []
     precise_searches = []
-    search_urls.append(u'https://www.googleapis.com/customsearch/v1?cx=011743744063680272768:cp4-iesopjm&key=AIzaSyCdHlGJuMzGBH9hNsEMObffDIkzJ44EQhA&hl=en&q={name}+{state}'.format(name=candidate, state=state))
-    extra_children_searches.append(u'https://www.googleapis.com/customsearch/v1?cx=011743744063680272768:cp4-iesopjm&key=AIzaSyCdHlGJuMzGBH9hNsEMObffDIkzJ44EQhA&hl=en&q={name}+{state}+info'.format(name=candidate, state=state))
-    extra_children_searches.append(u'https://www.googleapis.com/customsearch/v1?cx=011743744063680272768:cp4-iesopjm&key=AIzaSyCdHlGJuMzGBH9hNsEMObffDIkzJ44EQhA&hl=en&q={name}+{state}+sk=info'.format(name=candidate, state=state))
-    precise_searches.append(u'https://www.googleapis.com/customsearch/v1?cx=011743744063680272768:cp4-iesopjm&key=AIzaSyCdHlGJuMzGBH9hNsEMObffDIkzJ44EQhA&hl=en&q={name}+{state}+campaign'.format(name=candidate, state=state))
-    precise_searches.append(u'https://www.googleapis.com/customsearch/v1?cx=011743744063680272768:cp4-iesopjm&key=AIzaSyCdHlGJuMzGBH9hNsEMObffDIkzJ44EQhA&hl=en&q={name}+{state}+elect'.format(name=candidate, state=state))
+    search_urls.append(u'https://www.googleapis.com/customsearch/v1?cx=011743744063680272768:xcugk1a_1t0&key=AIzaSyCdHlGJuMzGBH9hNsEMObffDIkzJ44EQhA&hl=en&q={name}+{state}'.format(name=candidate, state=state))
+    precise_searches.append(u'https://www.googleapis.com/customsearch/v1?cx=011743744063680272768:xcugk1a_1t0&key=AIzaSyCdHlGJuMzGBH9hNsEMObffDIkzJ44EQhA&hl=en&q={name}+{state}+campaign'.format(name=candidate, state=state))
+    precise_searches.append(u'https://www.googleapis.com/customsearch/v1?cx=011743744063680272768:xcugk1a_1t0&key=AIzaSyCdHlGJuMzGBH9hNsEMObffDIkzJ44EQhA&hl=en&q={name}+{state}+elect'.format(name=candidate, state=state))
     search_urls = [s.encode(chardet.detect(s.encode('utf-8'))['encoding']) for s in search_urls]
-    extra_children_searches = [s.encode(chardet.detect(s.encode('utf-8'))['encoding']) for s in extra_children_searches]
+    #extra_children_searches = [s.encode(chardet.detect(s.encode('utf-8'))['encoding']) for s in extra_children_searches]
     precise_searches = [s.encode(chardet.detect(s.encode('utf-8'))['encoding']) for s in precise_searches]
+    webpage = conversions.twitter_handle_to_web(webpage)
     old_webpage = webpage
     if webpage != 'www.gernensamples.com':
         webpage = conversions.get_redirect(webpage)
@@ -57,6 +56,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
             raise Exception(', '.join(map(lambda r: r['error']['message'], filter(lambda r: r.has_key('error'),results))))
         else:
             break
+    """
     n = 4
     while True:
         child_results = map(lambda x: json.loads(requests.get(x).text),extra_children_searches)
@@ -68,6 +68,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
             raise Exception(', '.join(map(lambda r: r['error']['message'], filter(lambda r: r.has_key('error'),child_results))))
         else:
             break
+    """
     n = 4
     while True:
         precise_results = map(lambda x: json.loads(requests.get(x).text),precise_searches)
@@ -85,19 +86,21 @@ def getlinks(candidate, webpage, state, district_type, district_name):
         results = [results]
     real_results = [(r if r.has_key('items') else {'items':[]}) for r in results]
     results = real_results
-    search_links = [[i['link'].lower() for i in r['items']] for r in results]
+    search_links = [[conversions.clean_twitter(i['link'].lower()) for i in r['items']] for r in results]
     search_text = [[u'{title} {link} {pagemap} {snippet}'.format(**convert_pagemap_dict(i)).lower().encode('utf-8') for i in r['items']] for r in results]
     for ri in range(len(search_links)):
         for si in range(len(search_links[ri])):
             for r in precise_results:
                 if r.has_key('items'):
                     for i in r['items']:
-                        if conversions.child_or_equal_page(search_links[ri][si], i['link'].lower(), True):
+                        if conversions.child_or_equal_page(search_links[ri][si], conversions.clean_twitter(i['link'].lower()), True):
                             search_text[ri][si] += ' bipspecialappearsinprecise'
-    child_links = [i['link'].lower() for r in child_results if r.has_key('items') for i in r['items']]
-    child_text = [u'{title} {link} {pagemap} {snippet}'.format(**convert_pagemap_dict(i)).lower().encode('utf-8') for r in child_results if r.has_key('items') for i in r['items']]
+    #child_links = [i['link'].lower() for r in child_results if r.has_key('items') for i in r['items']]
+    child_links = []
+    #child_text = [u'{title} {link} {pagemap} {snippet}'.format(**convert_pagemap_dict(i)).lower().encode('utf-8') for r in child_results if r.has_key('items') for i in r['items']]
+    child_text = []
     #search_text = [[u'{title} {link} {pagemap} {snippet}'.format(**i).lower().encode('utf-8') for i in r['items']] for r in results]
-    search_class = [map(lambda s: conversions.page_relation(s, True, webpage,old_webpage),sl) for sl in search_links]
+    search_class = [map(lambda s: conversions.page_relation(s, False, webpage,old_webpage),sl) for sl in search_links]
     #search_class = [map(lambda s: 'True' if patt.match(s) != None or old_patt.match(s) != None else ('Child' if child_patt.match(s) != None or old_child_patt.match(s) != None else 'False'),sl) for sl in search_links]
     #print search_text
     #TODO Clean up ssv code
@@ -118,7 +121,7 @@ def combine_children(websites, texts, classes, child_links, child_text):
     temp_root_sites = {}
     sites_classes = zip(websites, classes)
     for site,cls in sites_classes:
-        group = filter(lambda s: class_order(conversions.page_relation(s[0],True,site),'False') > 0,zip(websites,classes,texts))
+        group = filter(lambda s: class_order(conversions.page_relation(s[0],False,site),'False') > 0,zip(websites,classes,texts))
         try:
             min_tuple = min(group,key=lambda g:class_ranks[g[1]])
         except:
@@ -232,9 +235,9 @@ def convert_pagemap_dict(item):
 
 lock = Lock()
 def runit(l, uid):
-    print l['facebook_url']
+    print l['twitter_name']
     try:
-        non_webpage_list, search_success_vector, webpage,sl,st,items,sc,cs,ct,cc,child_links, child_text = getlinks(l['name'].decode('utf-8').strip(), l['facebook_url'].decode('utf-8').strip(), l['state'].decode('utf-8').strip(), l['electoral_district_type'].decode('utf-8').strip(), l['electoral_district_name'].decode('utf-8').strip())
+        non_webpage_list, search_success_vector, webpage,sl,st,items,sc,cs,ct,cc,child_links, child_text = getlinks(l['name'].decode('utf-8').strip(), l['twitter_name'].decode('utf-8').strip(), l['state'].decode('utf-8').strip(), l['electoral_district_type'].decode('utf-8').strip(), l['electoral_district_name'].decode('utf-8').strip())
         print uid,len(non_webpage_list[0]),len(sl[0]),len(st[0]),len(items[0]),len(sc[0]),len(cs[0]),len(ct[0]),len(cc[0]),len(child_links),len(child_text)
     except Exception as error:
         import traceback; print traceback.format_exc()
@@ -248,7 +251,7 @@ if __name__ == '__main__':
         full = 'full'
     else:
         full = ''
-    with open('fb/{full}fbcands.csv'.format(full=full)) as f, open('fb/non/{full}fbnonwebpages.csv'.format(full=full),'w') as g, open('fb/non/{full}fbwebpage_ssv.csv'.format(full=full),'w') as h, open('fb/{full}fbsearch_results.csv'.format(full=full),'w') as k, open('fb/{full}fbsearch_results_combined.csv'.format(full=full),'w') as m:
+    with open('twitter/{full}twittercands.csv'.format(full=full)) as f, open('twitter/non/{full}twitternonwebpages.csv'.format(full=full),'w') as g, open('twitter/non/{full}twitterwebpage_ssv.csv'.format(full=full),'w') as h, open('twitter/{full}twittersearch_results.csv'.format(full=full),'w') as k, open('twitter/{full}twittersearch_results_combined.csv'.format(full=full),'w') as m:
         csvr = csv.DictReader(f)
         csvw = csv.writer(g)
         csvw2 = csv.writer(h)

@@ -50,8 +50,8 @@ def state_from_abbr(state):
     return state_map[state]
 
 def strip_and_std(url):
-    webpage_stripped = re.match(r'(?:https?://)?(?:www\.)?(?P<content>.+)',url).groupdict()['content'].rstrip('/')
-    return 'http://www.'+url
+    webpage_stripped = re.match(r'(?:https?://)?(?P<content>.+)',url).groupdict()['content'].rstrip('/')
+    return 'http://'+webpage_stripped
 
 def child_page(url, child, strip=False):
     if strip:
@@ -72,7 +72,7 @@ def equal_page(url, child, strip=False):
     else:
         webpage_stripped = strip_scheme_www(url)
         #webpage_stripped = re.match(r'(?:https?://)?(?:www\.)?(?P<content>.+)',url).groupdict()['content'].rstrip('/')
-    equal_patt = re.compile(r'^https?://(?:www\.)?{webpage}'.format(webpage=re.escape(webpage_stripped.lower())))
+    equal_patt = re.compile(r'^https?://(?:www\.)?{webpage}/?'.format(webpage=re.escape(webpage_stripped.lower())))
     return equal_patt.match(child)
 
 def child_or_equal_page(url, child, strip=False):
@@ -88,7 +88,10 @@ def child_or_equal_page(url, child, strip=False):
 
 def strip_queries(url):
     parsed = urllib2.urlparse.urlparse(url)
-    return parsed.scheme + '://' + parsed.netloc + parsed.path
+    if parsed.scheme != '':
+        return parsed.scheme + '://' + parsed.netloc + parsed.path
+    else:
+        return parsed.netloc+parsed.path
 
 def strip_scheme_www(url):
     webpage_stripped = re.match(r'(?:https?://)?(?:www\.)?(?P<content>.+)',url).groupdict()['content'].rstrip('/')
@@ -105,11 +108,11 @@ def page_relation(test_page,strip, *args):
     else:
         return 'False'
 
-
+num_tries = 3
 def get_redirect(url):
     try:
         for i in range(num_tries):
-            site = requests.get(url)
+            site = requests.get(strip_and_std(url))
             if site.status_code == 200:
                 redirect_url = site.url
                 break
@@ -118,3 +121,13 @@ def get_redirect(url):
     except Exception as e:
         redirect_url = 'ERROR'
     return redirect_url
+
+def twitter_handle_to_web(handle):
+    return 'http://twitter.com/'+handle
+
+def web_to_twitter_handle(web):
+    parsed = urllib2.urlparse.urlparse(web)
+    return parsed.path.split('/')[1]
+
+def clean_twitter(url):
+    return url.replace('#!/','')
