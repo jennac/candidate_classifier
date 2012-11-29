@@ -3,7 +3,6 @@ import imp
 DATABASE_CONFIG = {
         'user':'postgres',
         'db':'candsites',
-        'pw':'|-|3lp3rb34r'
         }
 ERSATZPG_CONFIG = {
         'debug':True
