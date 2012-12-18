@@ -25,3 +25,5 @@ twitter/srsplit
 cookies
 .~lock*
 search_names.py
+emails.csv
+badsites.csv
