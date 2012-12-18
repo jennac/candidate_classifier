@@ -2,9 +2,7 @@ import urllib2 as ul
 import re, csv, json, time, random, sys
 from state_map import state_map
 from multiprocessing import Pool, Lock
-from univ_settings import ERSATZPG_CONFIG
 import chardet
-from new_pages_conf import get_page_for_class
 from collections import defaultdict
 import conversions
 import requests
@@ -301,34 +299,3 @@ if __name__ == '__main__':
             pool.apply_async(runit, [l,uid], callback=callb)
         pool.close()
         pool.join()
-
-DEFAULT_TABLE = {
-        'skip_head_lines':0,
-        'format':'csv',
-        'field_sep':',',
-        'quotechar':'"',
-        'copy_every':25,
-        'udcs':{
-            },
-        }
-SITES_PLAIN = dict(DEFAULT_TABLE)
-SITES_PLAIN.update({
-    'table':'pages_for_class',
-    'filename':'/home/gaertner/code/candclass/search_results.csv',
-    'field_sep':',',
-    'columns':{
-        'uid':1,
-        'class':4,
-        ('sitetext','website'):{'function':get_page_for_class,'columns':(2,)},
-        },
-    })
-ERSATZPG_CONFIG.update({
-    'use_utf':False,
-    'tables':{
-        #'sites_ajax':SITES_AJAX,
-        'pages_for_class':SITES_PLAIN,
-        },
-    #'parallel_load':({'tables':('sites_ajax','sites_plain'),'keys':{}},),
-    'parallel_load':(),
-    'key_sources':{},
-    })
