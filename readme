@@ -1,9 +1,26 @@
+# Candidate Classifier
+
+## Overview
+
 Two functions exist in this repository: fetching searching for candidates using the Google Custom Search API, and classifying the results as candidate web presence or not.
+
+### Step 1) Get candidate names from CSV, execute search for web presences
+
 get_fb_links.py, get_twitter_links.py, and get_web_links.py are all very similar. They import a csv of candidate names with some associated information (state, electoral district, known url for the given web presence type, if any), make calls to the search API for a few candidate-related search terms (mainly candidate name + state) and clean and combine the results of the searches. If known urls are provided, the relation of the found urls to the known urls is given (Child, Equal, Parent, and None) The results are written out into another csv with each result associated with the unique id for each candidate.
 
+### Step 2) Classify search results
+
 classify_fb_combined.py, classify_twitter_combined.py, and classify_web_combined.py take these results and attempt to use machine learning techniques for classifying text to label the found pages as candidate related or not. The set of candidates with known urls forms the training and test set.
+
+## Methodology
+
 The classifiers used were from the scikit learn python library (http://scikit-learn.org/0.11/index.html). I based my usage of them on example code here: http://scikit-learn.org/0.11/auto_examples/document_classification_20newsgroups.html . I made two significant modifications to this code, other than obviously pulling data from my search text collection rather than their sample database:
-A custom feature identifier was used that could identify some custom multi-word features and some features that would be specific to each entry (for example if the candidate's name appeared in the text, if the candidate's office name appeared in the text.) The scikit learn default was simply using single word features. It has an n-gram analyzer as well, but I didn't immediately see where that could be used for multi-word features. The custom features were added to the single word default analyzer, so all single word features (minus stop words) were included as well. The addition of custom feature detection was probably the most significant improvement I achieved over just running the classifiers as-is.
-Second, I combined the results of the classifiers into a bayesian probability estimate for the class of the page. I was using as my input both the discrete classification returned by each classifier and the score returned for each class by each classifier. This almost certainly led to some inaccuracy in my conditional independence assumptions for my input variables, but it did give me a really nice (artificially) sharp logistic shaped function for making class choices. 
+
+A custom feature identifier was used that could identify some custom multi-word features and some features that would be specific to each entry (for example if the candidate's name appeared in the text, if the candidate's office name appeared in the text.) The scikit learn default was simply using single word features. It has an n-gram analyzer as well, but I didn't immediately see where that could be used for multi-word features.
+
+The custom features were added to the single word default analyzer, so all single word features (minus stop words) were included as well. The addition of custom feature detection was probably the most significant improvement I achieved over just running the classifiers as-is.
+
+Second, I combined the results of the classifiers into a bayesian probability estimate for the class of the page. I was using as my input both the discrete classification returned by each classifier and the score returned for each class by each classifier. This almost certainly led to some inaccuracy in my conditional independence assumptions for my input variables, but it did give me a really nice (artificially) sharp logistic shaped function for making class choices.
+
 The Bayesian formula used was:
 P(class | classifications, score) = P(class)*prod(P(classification|class) for each classifier)*P(score|class)/sum(P(class)*prod(P(classification|class) for each classifier)*P(score|class) for each class)
