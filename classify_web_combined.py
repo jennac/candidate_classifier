@@ -100,7 +100,8 @@ class SiteData:
         csvr = csv.DictReader(open(filename, 'rU'))
 
         for l in csvr:
-            if 'uid' not in candidate_data_dict:
+            print l.keys()
+            if 'uid' in l and l['uid'] not in candidate_data_dict:
                 continue
             candidate_data = dict(candidate_data_dict[l['uid']])
             candidate_data.update({'uid': l['uid'],
@@ -111,10 +112,10 @@ class SiteData:
             self.target_names.add(transform(l['class']))
             self.link.append(l['link'])
 
-        print self.data
-        print self.target
-        print self.target_names
-        print self.link
+        #print self.data
+        #print self.target
+        #print self.target_names
+        #print self.link
         self.data.append(repr({'uid': '',
                                'link': 'websitemywebsite',
                                'name': '',
@@ -210,7 +211,9 @@ def analyze(s):
     electoral_district_type = d['electoral_district_type']
     electoral_district_name = d['electoral_district_name']
     state = d['state']
+    print d['sitetext']
     text = d['sitetext'].lower().decode('utf-8')
+    print repr(text)
     name, last, first = conv.clean_name(name)
 
     for v in vocabulary:
@@ -487,6 +490,7 @@ for i in map(lambda x:x/10., range(12)):
 conditional_probabilities = {}
 for i in range(12):
     conditional_probabilities[i] = np.zeros((3,3))
+
 
 def get_fit(data):
     X = arange(data.size)
