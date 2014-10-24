@@ -1,90 +1,151 @@
-import urllib2 as ul
-import re, csv, json, time, random, sys
-from state_map import state_map
-from multiprocessing import Pool, Lock
 import chardet
-from collections import defaultdict
 import conversions
+import csv
+import json
+import random
+import re
 import requests
+import sys
+import time
+import urllib2 as ul
+
+from multiprocessing import Pool, Lock
+
+from state_map import state_map
+
 
 def getlinks(candidate, webpage, state, district_type, district_name):
-    district_type = district_type.replace('_',' ').strip()
+
+    district_type = district_type.replace('_', ' ').strip()
+    district_type = '+'.join(district_type.split(' '))
+    district_name = '+'.join(district_name.strip().split(' '))
+
     state = state_map[state.strip()]
+    state = '+'.join(state.split(' '))
+
     candidate, last, first = conversions.clean_name(candidate)
     candidate = '+'.join(candidate.split(' '))
     print candidate
-    state = '+'.join(state.split(' '))
-    district_type = '+'.join(district_type.split(' '))
-    district_name = '+'.join(district_name.strip().split(' '))
+
     search_urls = []
-    extra_children_searches = []
     precise_searches = []
-    search_urls.append(u'https://www.googleapis.com/customsearch/v1?cx=011743744063680272768:2oildgpr9n0&key=AIzaSyCdHlGJuMzGBH9hNsEMObffDIkzJ44EQhA&hl=en&q={name}+{state}'.format(name=candidate, state=state))
-    precise_searches.append(u'https://www.googleapis.com/customsearch/v1?cx=011743744063680272768:2oildgpr9n0&key=AIzaSyCdHlGJuMzGBH9hNsEMObffDIkzJ44EQhA&hl=en&q={name}+{state}+campaign'.format(name=candidate, state=state))
-    precise_searches.append(u'https://www.googleapis.com/customsearch/v1?cx=011743744063680272768:2oildgpr9n0&key=AIzaSyCdHlGJuMzGBH9hNsEMObffDIkzJ44EQhA&hl=en&q={name}+{state}+elect'.format(name=candidate, state=state))
-    search_urls = [s.encode(chardet.detect(s.encode('utf-8'))['encoding']) for s in search_urls]
-    #extra_children_searches = [s.encode(chardet.detect(s.encode('utf-8'))['encoding']) for s in extra_children_searches]
+
+    url = 'https://www.googleapis.com/customsearch/v1'
+    cx = '011743744063680272768:2oildgpr9n0'
+    key = 'AIzaSyCdHlGJuMzGBH9hNsEMObffDIkzJ44EQhA'
+
+    search_urls.append(
+        u'{url}?cx={cx}&key={key}&hl=en&q={name}+{state}'.format(
+            url=url, cx=cx, key=key, name=candidate, state=state)
+    )
+
+    precise_searches.append(
+        u'{url}?cx={cx}&key={key}&hl=en&q={name}+{state}+campaign'.format(
+            url=url, cx=cx, key=key, name=candidate, state=state)
+    )
+
+    precise_searches.append(
+        u'{url}?cx= {cx}&key={key}&hl=en&q={name}+{state}+elect'.format(
+            url=url, cx=cx, key=key, name=candidate, state=state)
+    )
+
+    search_urls = [
+        s.encode(chardet.detect(s.encode('utf-8'))['encoding'])
+        for s in search_urls
+    ]
+
     precise_searches = [s.encode(chardet.detect(s.encode('utf-8'))['encoding']) for s in precise_searches]
+    
+    print 'SEARCH_URLS: {}'.format(search_urls)
     old_webpage = webpage
     if webpage != 'www.gernensamples.com':
         webpage = conversions.get_redirect(webpage)
-    #if webpage == '404' or webpage == 'ERROR':
-        #raise Exception
-    websites = []
-    webpage_stripped = re.match(r'(?:https?://)?(?:www\.)?(?P<content>.+)',webpage).groupdict()['content'].rstrip('/')
-    old_webpage_stripped = re.match(r'(?:https?://)?(?:www\.)?(?P<content>.+)',old_webpage).groupdict()['content'].rstrip('/')
-    #TODO strip queries
+
+    webpage_stripped = re.match(
+        r'(?:https?://)?(?:www\.)?(?P<content>.+)', webpage
+    ).groupdict()['content'].rstrip('/')
+
+    old_webpage_stripped = re.match(
+        r'(?:https?://)?(?:www\.)?(?P<content>.+)', old_webpage
+    ).groupdict()['content'].rstrip('/')
+
+    # TODO strip queries
     webpage_no_queries = ul.urlparse.urlparse(webpage)
-    webpage_no_queries = re.match(r'(?:www\.)?(?P<content>.+)',webpage_no_queries.netloc + webpage_no_queries.path).groupdict()['content'].rstrip('/')
+    webpage_no_queries = re.match(
+        r'(?:www\.)?(?P<content>.+)',
+        webpage_no_queries.netloc + webpage_no_queries.path
+    ).groupdict()['content'].rstrip('/')
     old_webpage_no_queries = ul.urlparse.urlparse(old_webpage)
-    old_webpage_no_queries = re.match(r'(?:www\.)?(?P<content>.+)',old_webpage_no_queries.netloc + old_webpage_no_queries.path).groupdict()['content'].rstrip('/')
-    patt = re.compile(r'^https?://(?:www.)?{webpage}/?$'.format(webpage=webpage_stripped.lower()))
-    old_patt = re.compile(r'^https?://(?:www.)?{webpage}/?$'.format(webpage=old_webpage_stripped.lower()))
-    child_patt = re.compile(r'^https?://(?:www\.)?{webpage}.+'.format(webpage=webpage_no_queries.lower()))
-    old_child_patt = re.compile(r'^https?://(?:www\.)?{webpage}.+'.format(webpage=old_webpage_no_queries.lower()))
+    old_webpage_no_queries = re.match(
+        r'(?:www\.)?(?P<content>.+)',
+        old_webpage_no_queries.netloc + old_webpage_no_queries.path
+    ).groupdict()['content'].rstrip('/')
+
+    patt = re.compile(r'^https?://(?:www.)?{webpage}/?$'.format(
+        webpage=webpage_stripped.lower())
+    )
+    old_patt = re.compile(r'^https?://(?:www.)?{webpage}/?$'.format(
+        webpage=old_webpage_stripped.lower())
+    )
+
     n = 4
     while True:
-        results = map(lambda x: json.loads(requests.get(x).text),search_urls)
-        if any(map(lambda r: r.has_key('error') and (r['error']['code'] == 403 or r['error']['code'] == 503),results)):
+        results = map(
+            lambda x: json.loads(requests.get(x).text), search_urls
+        )
+        if any(map(
+                lambda r: 'error' in r and (r['error']['code'] == 403
+                                            or r['error']['code'] == 503),
+                results)):
             print 'sleeping'
-            time.sleep(n + random.randint(1,1000)/1000.)
+            time.sleep(n + random.randint(1, 1000)/1000.)
             n = n*2
-        elif any(map(lambda r: r.has_key('error'), results)):
-            raise Exception(', '.join(map(lambda r: r['error']['message'], filter(lambda r: r.has_key('error'),results))))
+        elif any(map(lambda r: 'error' in r, results)):
+            raise Exception(', '.join(
+                map(lambda r: r['error']['message'],
+                    filter(lambda r: 'error' in r, results)))
+            )
         else:
             break
-    """
+
     n = 4
     while True:
-        child_results = map(lambda x: json.loads(requests.get(x).text),extra_children_searches)
-        if any(map(lambda r: r.has_key('error') and (r['error']['code'] == 403 or r['error']['code'] == 503),child_results)):
-            print 'sleeping'
-            time.sleep(n + random.randint(1,1000)/1000.)
-            n = n*2
-        elif any(map(lambda r: r.has_key('error'), child_results)):
-            raise Exception(', '.join(map(lambda r: r['error']['message'], filter(lambda r: r.has_key('error'),child_results))))
-        else:
-            break
-    """
-    n = 4
-    while True:
-        precise_results = map(lambda x: json.loads(requests.get(x).text),precise_searches)
-        if any(map(lambda r: r.has_key('error') and (r['error']['code'] == 403 or r['error']['code'] == 503),precise_results)):
+        precise_results = map(
+            lambda x: json.loads(requests.get(x).text), precise_searches
+        )
+        if any(map(
+            lambda r: 'error' in r and (r['error']['code'] == 403 or r['error']['code'] == 503),precise_results)):
             print 'sleeping'
             time.sleep(n + random.randint(1,1000)/1000.)
             n = n*2
         elif any(map(lambda r: r.has_key('error'), precise_results)):
-            raise Exception(', '.join(map(lambda r: r['error']['message'], filter(lambda r: r.has_key('error'),precise_results))))
+            raise Exception(', '.join(map(lambda r: r['error']['message'], filter(lambda r: 'error' in r, precise_results))))
         else:
             break
 
+#    print 'RESULTS:{}'.format(results)
     if type(results) != list:
         print type(results)
         results = [results]
-    real_results = [(r if r.has_key('items') else {'items':[]}) for r in results]
+
+    real_results = [(r if 'items' in r else {'items': []}) for r in results]
     results = real_results
-    search_links = [[i['link'].lower() for i in r['items']] for r in results]
-    search_text = [[u'{title} {link} {pagemap} {snippet}'.format(**convert_pagemap_dict(i)).lower().encode('utf-8') for i in r['items']] for r in results]
+
+    search_links = [
+        [
+            i['link'].lower() for i in r['items']
+        ] for r in results
+    ]
+
+    search_text = [
+        [
+            u'{title} {link} {pagemap} {snippet}'.format(
+                **convert_pagemap_dict(i)
+            ).lower().encode('utf-8') for i in r['items']
+        ] for r in results
+    ]
+
+    print 'SL:{}'.format(search_links)
     for ri in range(len(search_links)):
         for si in range(len(search_links[ri])):
             for r in precise_results:
@@ -92,33 +153,30 @@ def getlinks(candidate, webpage, state, district_type, district_name):
                     for i in r['items']:
                         if conversions.child_or_equal_page(search_links[ri][si], i['link'].lower(), True):
                             search_text[ri][si] += ' bipspecialappearsinprecise'
-    #child_links = [i['link'].lower() for r in child_results if r.has_key('items') for i in r['items']]
     child_links = []
-    #child_text = [u'{title} {link} {pagemap} {snippet}'.format(**convert_pagemap_dict(i)).lower().encode('utf-8') for r in child_results if r.has_key('items') for i in r['items']]
     child_text = []
-    #search_text = [[u'{title} {link} {pagemap} {snippet}'.format(**i).lower().encode('utf-8') for i in r['items']] for r in results]
-    search_class = [map(lambda s: conversions.page_relation(s, True, webpage,old_webpage),sl) for sl in search_links]
-    #search_class = [map(lambda s: 'True' if patt.match(s) != None or old_patt.match(s) != None else ('Child' if child_patt.match(s) != None or old_child_patt.match(s) != None else 'False'),sl) for sl in search_links]
-    #print search_text
+    search_class = [map(lambda s: conversions.page_relation(s, True, webpage, old_webpage), sl) for sl in search_links]
+
     #TODO Clean up ssv code
     ssv = [any(map(patt.match,sl)) or any(map(old_patt.match,sl)) for sl in search_links]
     non_websites = [[i['link'] for i in r['items'] if webpage not in i['link']] for r in results]
-    cs,ct,cc = zip(*[combine_children(search_links[i],search_text[i],search_class[i], child_links, child_text) for i in range(len(search_links))])
+    cs,ct,cc = zip(*[combine_children(search_links[i], search_text[i], search_class[i], child_links, child_text) for i in range(len(search_links))])
     print 'got there',len(results[0]['items'])
+
     return non_websites, ssv, webpage_stripped, search_links, search_text, [r['items'] for r in results], search_class, cs, ct, cc,child_links,child_text
 
 classes= ('ParentCombined','TrueCombined','ChildCombined','FalseCombined', 'Parent','True','Child','False')
 class_ranks = dict((classes[i],i) for i in range(len(classes)))
+
 def class_order(cls1,cls2):
     return class_ranks[cls2]-class_ranks[cls1]
 
 def combine_children(websites, texts, classes, child_links, child_text):
     combined_sites = {'websites':[],'texts':[],'classes':[]}
-    root_sites = []
-    temp_root_sites = {}
+
     sites_classes = zip(websites, classes)
-    for site,cls in sites_classes:
-        group = filter(lambda s: class_order(conversions.page_relation(s[0],True,site),'False') > 0,zip(websites,classes,texts))
+    for site, cls in sites_classes:
+        group = filter(lambda s: class_order(conversions.page_relation(s[0], True, site), 'False') > 0,zip(websites,classes,texts))
         try:
             min_tuple = min(group,key=lambda g:class_ranks[g[1]])
         except:
@@ -146,54 +204,6 @@ def combine_children(websites, texts, classes, child_links, child_text):
         group_text += ' ' + ' '.join(map(lambda g:g[2],group))
         combined_sites['texts'].append(group_text)
 
-    """
-        actual_root = conversion.strip_queries(webpage)
-        #webpage_no_queries = ul.urlparse.urlparse(webpage)
-        #actual_root = webpage_no_queries.scheme + '://' + webpage_no_queries.netloc + webpage_no_queries.path
-        webpage_no_queries = re.match(r'(?:www\.)?(?P<content>.+)',webpage_no_queries.netloc + webpage_no_queries.path).groupdict()['content'].rstrip('/')
-        child_patt = re.compile(r'^https?://(?:www\.)?{webpage}.+'.format(webpage=webpage_no_queries.lower()))
-        if not temp_root_site.has_key(actual_root) or class_order(cls,temp_root_site[actual_root]['class']) > 0:
-            temp_root_sites[actual_root] = {'actual_root':actual_root,'child_patt':child_patt,'class':cls+'Combined'})
-    for site_dict in temp_root_sites:
-        if any(map(lambda rs['child_patt'].match(site_dict['actual_root']),temp_root_sites)):
-            continue
-        root_sites.append(site_dict)
-        combined_sites[site_dict['actual_root']] = {'text':'','class':site_dict['class']}
-        for child,ctext in zip(child_links, child_text):
-            if site_dict['child_patt'].match(child):
-
-
-    site_dict = defaultdict(lambda: {'children':set(),'has_parent':False,'text':''})
-    for child,ctext in zip(child_links, child_text):
-        site_dict[child]['text'] = ctext
-    for site,text in zip(websites, texts):
-        webpage_no_queries = ul.urlparse.urlparse(webpage)
-        webpage_no_queries = re.match(r'(?:www\.)?(?P<content>.+)',webpage_no_queries.netloc + webpage_no_queries.path).groupdict()['content'].rstrip('/')
-        child_patt = re.compile(r'^https?://(?:www\.)?{webpage}.+'.format(webpage=webpage_no_queries.lower()))
-        site_dict[site]['text'] = text
-        for s in websites:
-            if s != site and child_patt.match(s):
-                site_dict[site]['children'].add(s)
-                site_dict[s]['has_parent'] = True
-        for c in child_links:
-            if c != site and child_patt.match(c):
-                site_dict[site]['children'].add(c)
-                site_dict[c]['has_parent'] = True
-    combined_sites = {'websites':[],'texts':[],'classes':[]}
-    def combine_text(site):
-        if len(site_dict[site]['children']) > 0:
-            ret_text = site_dict[site]['text']
-            for c in site_dict[site]['children']:
-                ret_text += ' ' + combine_text(c)
-            return ret_text
-        else:
-            return site_dict[site]['text']
-    for site,cl in zip(websites, classes):
-        if not site_dict[site]['has_parent']:
-            combined_sites['websites'].append(site)
-            combined_sites['texts'].append(combine_text(site))
-            combined_sites['classes'].append(cl+'Combined')
-    """
     return combined_sites['websites'], combined_sites['texts'],combined_sites['classes']
 
 
@@ -232,10 +242,17 @@ def convert_pagemap_dict(item):
 
 lock = Lock()
 def runit(l, uid):
-    print l['candidate_url']
+    print 'ok'
+    print l['Website']
     try:
-        non_webpage_list, search_success_vector, webpage,sl,st,items,sc,cs,ct,cc,child_links, child_text = getlinks(l['name'].decode('utf-8').strip(), l['candidate_url'].decode('utf-8').strip(), l['state'].decode('utf-8').strip(), l['electoral_district_type'].decode('utf-8').strip(), l['electoral_district_name'].decode('utf-8').strip())
-        print uid,len(non_webpage_list[0]),len(sl[0]),len(st[0]),len(items[0]),len(sc[0]),len(cs[0]),len(ct[0]),len(cc[0]),len(child_links),len(child_text)
+        non_webpage_list, search_success_vector, webpage,sl,st,items,sc,cs,ct,cc,child_links, child_text = getlinks(
+            l['Candidate Name'].decode('utf-8').strip(),
+            l['Website'].decode('utf-8').strip(),
+            l['State'].decode('utf-8').strip(),
+            l['type'].decode('utf-8').strip(),
+            l['name'].decode('utf-8').strip()
+        )
+        print 'UID:{}\nNON_WEBPAGE:{}\nSL:{}\nST:{}\nITEMS:{}\nSC:{}\nCS:{}\nCT:{}\nCC:{}\nCHILD LINKS:{}\nCHILD TEXT:{}\n\n'.format(uid,len(non_webpage_list[0]),len(sl[0]),len(st[0]),len(items[0]),len(sc[0]),len(cs[0]),len(ct[0]),len(cc[0]),len(child_links),len(child_text))
     except Exception as error:
         import traceback; print traceback.format_exc()
         print error
@@ -261,6 +278,7 @@ if __name__ == '__main__':
         search_rows_written = [0]
         pool = Pool(processes=20)
         def callb(results):
+            print 'callb'
             uid,nwl,ssv,webpage,sl,st,items,sc,cs,ct,cc,child_links,child_text = results
             #uid = results[0]
             #nwl = results[1]
@@ -296,7 +314,7 @@ if __name__ == '__main__':
                 pass
             lock.release()
         for l in csvr:
-            uid = l['identifier']
+            uid = l['UID']
             #callb(runit(l,uid))
             pool.apply_async(runit, [l,uid], callback=callb)
         pool.close()

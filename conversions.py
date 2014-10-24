@@ -3,6 +3,7 @@ from collections import defaultdict
 from state_map import state_map
 import requests
 import urllib2
+
 district_type_dict = defaultdict(lambda:(),{
         'congressional_district':('congress','congressional','congressional district'),
         'state_senate_district':('state senate','senate','senator','state senator'),
@@ -20,6 +21,8 @@ office_names = ('delegate','congressman','congresswoman','senator','sherrif','fi
 from state_map import state_map
 name_pat = re.compile(r'(?P<first>\w+)\s+(?:\w\.?\s+)?(:?"(?P<nick>\w+)"\s+)?(?P<last>\w+)(?:\s+jr\.|ii|iii|iv|sr\.)?')
 initial_first_pat = re.compile(r'(?:\w\.?)\s+(?P<first>\w+)\s+(:?"(?P<nick>\w+)"\s+)?(?P<last>\w+)(?:\s+jr\.|ii|iii|iv|sr\.)?')
+
+
 def clean_name(name):
     try:
         name = name.lower().decode('utf-8').strip()

@@ -4,14 +4,18 @@
 #         Lars Buitinck <L.J.Buitinck@uva.nl>
 # License: Simplified BSD
 
+import csv
 import logging
 import numpy as np
+import operator
+import sys
+
 from optparse import OptionParser
-import sys, csv, re, math, operator
-from time import time
 from pylab import *
 from pylab import clf as clearfig
+from time import time
 
+from sklearn import metrics
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_selection import SelectKBest, chi2
@@ -23,7 +27,7 @@ from sklearn.naive_bayes import BernoulliNB, MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neighbors import NearestCentroid
 from sklearn.utils.extmath import density
-from sklearn import metrics
+
 
 # Display progress logs on stdout
 logging.basicConfig(level=logging.INFO,
@@ -32,7 +36,11 @@ logging.basicConfig(level=logging.INFO,
 
 # parse commandline arguments
 op = OptionParser()
-op.add_option("--full",action="store_true", dest="full",help="make full")
+
+op.add_option("--full",
+              action="store_true", dest="full",
+              help="make full")
+
 op.add_option("--report",
               action="store_true", dest="print_report",
               help="Print a detailed classification report.")
@@ -48,6 +56,7 @@ op.add_option("--top10",
                    " for every classifier.")
 
 (opts, args) = op.parse_args()
+
 if len(args) > 0:
     op.error("this script takes no arguments.")
     sys.exit(1)
@@ -68,64 +77,105 @@ categories = [
 ]
 """
 # Uncomment the following to do the analysis on all the categories
-#categories = None
+# categories = None
 
-from collections import defaultdict
+
 class SiteData:
+
     def __init__(self, filename, categories, candidate_data_dict):
+
+        print filename
+#        print candidate_data_dict['GA201400300'].keys()
         self.data = []
         self.target = []
         self.link = []
         self.target_names = set()
-        category_dict = dict((categories[i],i) for i in range(len(categories)))
-        transform = lambda cl: 'TrueCombined' if cl=='ChildCombined' or cl=='ParentCombined' else cl
-        csvr = csv.DictReader(open(filename))
+
+        category_dict = dict(
+            (categories[i], i) for i in range(len(categories))
+        )
+
+        transform = lambda cl: 'TrueCombined' if cl == 'ChildCombined' or cl == 'ParentCombined' else cl
+
+        csvr = csv.DictReader(open(filename, 'rU'))
+
         for l in csvr:
-            if not candidate_data_dict.has_key(l['uid']):
+            if 'uid' not in candidate_data_dict:
                 continue
             candidate_data = dict(candidate_data_dict[l['uid']])
-            candidate_data.update({'uid':l['uid'],'link':l['link'],'sitetext':l['sitetext']})
+            candidate_data.update({'uid': l['uid'],
+                                   'link': l['link'],
+                                   'sitetext': l['sitetext']})
             self.data.append(repr(candidate_data))
             self.target.append(category_dict[transform(l['class'])])
             self.target_names.add(transform(l['class']))
             self.link.append(l['link'])
-        self.data.append(repr({'uid':'','link':'websitemywebsite','name':'','state':'', 'office_level':'','electoral_district_type':'','electoral_district_name':'','sitetext':''}))
+
+        print self.data
+        print self.target
+        print self.target_names
+        print self.link
+        self.data.append(repr({'uid': '',
+                               'link': 'websitemywebsite',
+                               'name': '',
+                               'state': '',
+                               'office_level': '',
+                               'electoral_district_type': '',
+                               'electoral_district_name': '',
+                               'sitetext': ''}))
         self.target.append(2)
         self.target_names.add('grooon')
         self.link.append('nothing')
-class DBSiteData:
-    def __init__(self, table_name, connection, categories):
-        self.data = []
-        self.target = []
-        self.target_names = set()
-        cursor = connection.cursor()
-        cursor.execute('select class, sitetext from {table};'.format(table=table_name))
-        r = cursor.fetchall()
-        category_dict = dict((categories[i],i) for i in range(len(categories)))
-        for t,d in r:
-            self.target.append(category_dict[t])
-            self.target_names.add(t)
-            self.data.append(d)
-dict_columns = ('name','electoral_district_type','electoral_district_name','state','office_level')
-partial_candidate_dict = dict((l['identifier'],dict((dc, l[dc]) for dc in dict_columns)) for l in csv.DictReader(open('web/webcands.csv')))
-full_candidate_dict = dict((l['identifier'],dict((dc, l[dc]) for dc in dict_columns)) for l in csv.DictReader(open('web/fullwebcands.csv')))
+
+#dict_columns = ('name', 'electoral_district_type',
+#                'electoral_district_name',
+#                'state', 'office_level')
+#TODO REWRITE
+partial_candidate_dict = {}
+for row in csv.DictReader(open('web/webcands.csv', 'rU')):
+    partial_candidate_dict[row['UID']] = {
+        'name': row['Candidate Name'],
+        'electoral_district_type': row['type'],
+        'electoral_district_name': row['name'],
+        'state': row['State'],
+        'office_level': ''  # figure out how to translate this, then populate
+    }
+
+full_candidate_dict = {}
+for row in csv.DictReader(open('web/fullwebcands.csv', 'rU')):
+    full_candidate_dict[row['UID']] = {
+        'name': row['Candidate Name'],
+        'electoral_district_type': row['type'],
+        'electoral_district_name': row['name'],
+        'state': row['State'],
+        'office_level': ''  # figure out how to translate this, then populate
+    }
+
+#partial_candidate_dict = dict((l['identifier'], dict((dc, l[dc]) for dc in dict_columns)) for l in csv.DictReader(open('web/webcands.csv')))
+#full_candidate_dict = dict((l['identifier'],dict((dc, l[dc]) for dc in dict_columns)) for l in csv.DictReader(open('web/fullwebcands.csv')))
 
 categories = [
-        'FalseCombined',
-        'TrueCombined',
-        'grooon',
-        ]
+    'FalseCombined',
+    'TrueCombined',
+    'grooon',
+]
+
 print "Loading 20 newsgroups dataset for categories:"
 print categories if categories else "all"
 
-data_train = SiteData('web/websearch_results_combined_train.csv', categories, partial_candidate_dict)
-data_test = SiteData('web/websearch_results_combined_test.csv', categories, partial_candidate_dict)
+data_train = SiteData('web/websearch_results_combined_train.csv',
+                      categories, partial_candidate_dict)
+data_test = SiteData('web/websearch_results_combined_test.csv',
+                     categories, partial_candidate_dict)
 
 if opts.full:
     data_full = []
-    num_full=17
+    num_full = 17
     for file_counter in range(num_full):
-        data_full.append(SiteData('web/srsplit/fullwebsearch_results_combined{i:02d}'.format(i=file_counter),categories, full_candidate_dict))
+        data_full.append(
+            SiteData('web/srsplit/fullwebsearch_results_combined{i: 02d}'.format(i=file_counter), categories, full_candidate_dict)
+        )
+
 """
 data_train = fetch_20newsgroups(subset='train', categories=categories,
                                shuffle=True, random_state=42)
@@ -133,14 +183,18 @@ data_train = fetch_20newsgroups(subset='train', categories=categories,
 data_test = fetch_20newsgroups(subset='test', categories=categories,
                               shuffle=True, random_state=42)
 """
+
 print 'data loaded'
+
 import conversions as conv
-from ersatzpg.utffile import utffile
+from utffile import utffile
+
 special_terms = []
 vocabulary = []
-basic_vectorizer = TfidfVectorizer(sublinear_tf=True, max_df=0.5, use_idf=False,
-                             stop_words='english')
+basic_vectorizer = TfidfVectorizer(sublinear_tf=True, max_df=0.5,
+                                   use_idf=False, stop_words='english')
 basic_analyze = basic_vectorizer.build_analyzer()
+
 with utffile('searchterms.csv') as f:
     for s in f:
         if s.startswith('<'):
@@ -148,19 +202,20 @@ with utffile('searchterms.csv') as f:
         else:
             vocabulary.append(s.decode('utf-8').strip())
 
+
 def analyze(s):
-    d=eval(s)
+    d = eval(s)
     special_keys = []
     name = d['name']
     electoral_district_type = d['electoral_district_type']
     electoral_district_name = d['electoral_district_name']
     state = d['state']
-    link = d['link']
     text = d['sitetext'].lower().decode('utf-8')
-    name, last,first = conv.clean_name(name)
+    name, last, first = conv.clean_name(name)
+
     for v in vocabulary:
         special_keys += [conv.search_to_feature_key(v)]*text.count(v.lower())
-        text.replace(v.lower(),'')
+        text.replace(v.lower(), '')
     special_keys += [conv.search_to_feature_key('name')]*text.count(name.lower())
     special_keys += [conv.search_to_feature_key('last')]*text.count(last.lower())
     special_keys += [conv.search_to_feature_key('first')]*text.count(first.lower())
@@ -195,10 +250,7 @@ def analyze(s):
     return basic_analyze(text) + special_keys
 
 
-
-
-
-#categories = data_train.target_names    # for case categories == None
+# categories = data_train.target_names    # for case categories == None
 
 print "%d documents (training set)" % len(data_train.data)
 print "%d documents (testing set)" % len(data_test.data)
@@ -210,7 +262,8 @@ y_train, y_test = data_train.target, data_test.target
 
 print "Extracting features from the training dataset using a sparse vectorizer"
 t0 = time()
-vectorizer = TfidfVectorizer(sublinear_tf=True, analyzer=analyze, use_idf=False, max_df=0.5,
+vectorizer = TfidfVectorizer(sublinear_tf=True, analyzer=analyze,
+                             use_idf=False, max_df=0.5,
                              stop_words='english')
 X_train = vectorizer.fit_transform(data_train.data)
 print "done in %fs" % (time() - t0)
@@ -260,9 +313,11 @@ feature_names = vectorizer.get_feature_names()
 # Benchmark classifiers
 if opts.full:
     full_predictions = [[] for i in range(num_full)]
-    full_df = [[] for i in  range(num_full)]
+    full_df = [[] for i in range(num_full)]
 test_predictions = []
 test_df = []
+
+
 def benchmark(clf):
     print 80 * '_'
     print "Training: "
@@ -333,10 +388,13 @@ def benchmark(clf):
 
 header = []
 results = []
-for clf, name in ((RidgeClassifier(tol=1e-3,class_weight={1:1,2:5,3:.0001}), "Ridge Classifier"),
-                  (Perceptron(n_iter=50), "Perceptron"),
-                  (KNeighborsClassifier(n_neighbors=10), "kNN")
-                  ):
+for clf, name in (
+        (RidgeClassifier(tol=1e-3,
+                         class_weight={1: 1, 2: 5, 3: .0001}
+                         ), "Ridge Classifier"),
+        (Perceptron(n_iter=50), "Perceptron"),
+        (KNeighborsClassifier(n_neighbors=10), "kNN")
+):
     print 80 * '='
     print name
     header.append(name)
@@ -418,6 +476,7 @@ for i, c in  zip(indices, clf_names):
 
 pl.show()
 """
+
 aggregate_confusions = {}
 aggregate_score_confusions = {}
 num_preds = len(test_predictions)

@@ -32,7 +32,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
     # Candidate name
     candidate, last, first = conversions.clean_name(candidate)
     candidate = '+'.join(candidate.split(' '))
-    print candidate
+    print 'CANDIDATE: {}'.format(candidate)
 
     # Setup search urls
     search_urls = []
@@ -89,6 +89,8 @@ def getlinks(candidate, webpage, state, district_type, district_name):
         ) for s in extra_children_searches
     ]
 
+    print 'SEARCH_URLS: {}'.format(search_urls)
+
     precise_searches = [
         s.encode(
             chardet.detect(s.encode('utf-8'))['encoding']
@@ -98,65 +100,81 @@ def getlinks(candidate, webpage, state, district_type, district_name):
     # This must be  a test for a dummy webside used for testing
     # get_redirect simply gets the final page that returns a 200
     old_webpage = webpage
+    if old_webpage is None:
+        return None 
+
     if webpage != 'www.gernensamples.com':
         webpage = conversions.get_redirect(webpage)
 
-    if webpage == '404' or webpage == 'ERROR':
-        raise Exception
+    print 'WBBPAGES: {}'.format(webpage)
 
+    has_webpage = True
+    if webpage == '404' or webpage == 'ERROR':
+        has_webpage = False
+        print 'oh'
+    #    raise Exception  # why do we need this exception??
+    # print 'ok?'
     # Cleanup web pages by removing protocol, subdomain, and trailing '/'
 
-    webpage_stripped = re.match(
-        r'(?:https?://)?(?:www\.)?(?P<content>.+)', webpage
-    ).groupdict()['content'].rstrip('/')
+    if has_webpage:
+        print has_webpage
+        webpage_stripped = re.match(
+            r'(?:https?://)?(?:www\.)?(?P<content>.+)', webpage
+        ).groupdict()['content'].rstrip('/')
 
-    old_webpage_stripped = re.match(
-        r'(?:https?://)?(?:www\.)?(?P<content>.+)', old_webpage
-    ).groupdict()['content'].rstrip('/')
+        old_webpage_stripped = re.match(
+            r'(?:https?://)?(?:www\.)?(?P<content>.+)', old_webpage
+        ).groupdict()['content'].rstrip('/')
 
-    # TODO strip queries
-    webpage_no_queries = ul.urlparse.urlparse(webpage)
-    webpage_no_queries = re.match(
-        r'(?:www\.)?(?P<content>.+)',
-        webpage_no_queries.netloc + webpage_no_queries.path
-    ).groupdict()['content'].rstrip('/')
+        # TODO strip queries
+        webpage_no_queries = ul.urlparse.urlparse(webpage)
+        webpage_no_queries = re.match(
+            r'(?:www\.)?(?P<content>.+)',
+            webpage_no_queries.netloc + webpage_no_queries.path
+        ).groupdict()['content'].rstrip('/')
 
-    old_webpage_no_queries = ul.urlparse.urlparse(old_webpage)
-    old_webpage_no_queries = re.match(
-        r'(?:www\.)?(?P<content>.+)',
-        old_webpage_no_queries.netloc + old_webpage_no_queries.path
-    ).groupdict()['content'].rstrip('/')
+        old_webpage_no_queries = ul.urlparse.urlparse(old_webpage)
+        
+        print 'NO:{}'.format(old_webpage_no_queries)
+        if old_webpage_no_queries is not None:
+            old_webpage_no_queries = re.match(
+                r'(?:www\.)?(?P<content>.+)',
+                old_webpage_no_queries.netloc + old_webpage_no_queries.path
+            ).groupdict()['content'].rstrip('/')
 
-    patt = re.compile(
-        r'^https?://(?:www.)?{webpage}/?$'.format(
-            webpage=webpage_stripped.lower()
+        patt = re.compile(
+            r'^https?://(?:www.)?{webpage}/?$'.format(
+                webpage=webpage_stripped.lower()
+            )
         )
-    )
-
-    old_patt = re.compile(
-        r'^https?://(?:www.)?{webpage}/?$'.format(
-            webpage=old_webpage_stripped.lower()
+        old_patt = re.compile(
+            r'^https?://(?:www.)?{webpage}/?$'.format(
+                webpage=old_webpage_stripped.lower()
+            )
         )
-    )
 
-    child_patt = re.compile(
-        r'^https?://(?:www\.)?{webpage}.+'.format(
-            webpage=webpage_no_queries.lower()
+        child_patt = re.compile(
+            r'^https?://(?:www\.)?{webpage}.+'.format(
+                webpage=webpage_no_queries.lower()
+            )
         )
-    )
 
-    old_child_patt = re.compile(
-        r'^https?://(?:www\.)?{webpage}.+'.format(
-            webpage=old_webpage_no_queries.lower()
+        old_child_patt = re.compile(
+            r'^https?://(?:www\.)?{webpage}.+'.format(
+                webpage=old_webpage_no_queries.lower()
+            )
         )
-    )
 
+    print 'starting'
     n = 4
     while True:
         results = map(lambda x: json.loads(requests.get(x).text), search_urls)
+        for r in results:
+            print 'error' in r
         if any(map(
-                lambda r: ('error' in r and (r['error']['code'] == 403)
-                           or r['error']['code'] == 503), results)):
+                lambda r: ('error' in r and (
+                    r['error']['code'] == 403 or r['error']['code'] == 503)
+                ), results)):
             print 'sleeping'
             time.sleep(n + random.randint(1, 1000)/1000.)
             n = n*2
@@ -217,6 +235,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
         else:
             break
 
+  
     if type(results) != list:
         print type(results)
         results = [results]
@@ -227,6 +246,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
     ]
     results = real_results
 
+    print 'RESULTS:{}'.format(results)
     # Get the result URLs, Extract searchable text from the pagemap
     search_links = [[i['link'].lower() for i in r['items']] for r in results]
     search_text = [
@@ -435,25 +455,29 @@ lock = Lock()
 
 
 def runit(l, uid):
-    print l['facebook_url']
+    #print '---------START----------------'
+    print l.keys()
+    print 'FACEBOOK: {}'.format(l['Facebook URL'])
+    #print l['name']
     try:
-        non_webpage_list, search_success_vector, webpage, sl, st, items,\
-            sc, cs, ct, cc, child_links, child_text = getlinks(
-                l['name'].decode('utf-8').strip(),
-                l['facebook_url'].decode('utf-8').strip(),
-                l['state'].decode('utf-8').strip(),
-                l['electoral_district_type'].decode('utf-8').strip(),
-                l['electoral_district_name'].decode('utf-8').strip()
+        non_webpage_list, search_success_vector, webpage, sl, st, items, sc, cs, ct, cc, child_links, child_text = getlinks(
+                l['Candidate Name'].decode('utf-8').strip(),
+                l['Facebook URL'].decode('utf-8').strip(),
+                l['State'].decode('utf-8').strip(),
+                l['type'].decode('utf-8').strip(),
+                l['name'].decode('utf-8').strip()
             )
-
-        print uid, len(non_webpage_list[0]), len(sl[0]), len(st[0]), \
-            len(items[0]), len(sc[0]), len(cs[0]), len(ct[0]), len(cc[0]), \
-            len(child_links), len(child_text)
+        print 'UID:{}\nNON_WEBPAGE:{}\nSL:{}\nST:{}\nITEMS:{}\nSC:{}\nCS:{}\nCT:{}\nCC:{}\nCHILD LINKS:{}\nCHILD TEXT:{}\n\n'.format(uid,len(non_webpage_list[0]),len(sl[0]),len(st[0]),len(items[0]),len(sc[0]),len(cs[0]),len(ct[0]),len(cc[0]),len(child_links),len(child_text))
+#        print uid, len(non_webpage_list[0]), len(sl[0]), len(st[0]), \
+#            len(items[0]), len(sc[0]), len(cs[0]), len(ct[0]), len(cc[0]), \
+#            len(child_links), len(child_text)
     except Exception as error:
         import traceback
         print traceback.format_exc()
         print error
+        #print '-------ENDEXCEP------------------'
         return uid, [], [], [], [], [], [], [], [], [], [], [], []
+    #print '---------END----------------'
     return (uid, non_webpage_list, search_success_vector, webpage,
             sl, st, items, sc, cs, ct, cc, child_links, child_text)
 
@@ -463,7 +487,7 @@ if __name__ == '__main__':
         full = 'full'
     else:
         full = ''
-    with open('fb/{full}fbcands.csv'.format(full=full)) as f,\
+    with open('fb/{full}fbcands.csv'.format(full=full), 'rU') as f,\
         open('fb/non/{full}fbnonwebpages.csv'.format(full=full), 'w') as g,\
         open('fb/non/{full}fbwebpage_ssv.csv'.format(full=full), 'w') as h,\
         open('fb/{full}fbsearch_results.csv'.format(full=full), 'w') as k,\
@@ -524,7 +548,7 @@ if __name__ == '__main__':
             lock.release()
 
         for l in csvr:
-            uid = l['identifier']
+            uid = l['UID']
             pool.apply_async(runit, [l, uid], callback=callb)
 
         pool.close()
