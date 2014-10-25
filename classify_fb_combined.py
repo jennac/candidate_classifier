@@ -71,7 +71,10 @@ categories = [
 #categories = None
 
 from collections import defaultdict
+
+
 class SiteData:
+
     def __init__(self, filename, categories, candidate_data_dict):
         self.data = []
         self.target = []
@@ -84,31 +87,23 @@ class SiteData:
             if not candidate_data_dict.has_key(l['uid']):
                 continue
             candidate_data = dict(candidate_data_dict[l['uid']])
-            candidate_data.update({'uid':l['uid'],'link':l['link'],'sitetext':l['sitetext']})
+            candidate_data.update({'uid': l['uid'], 'link': l['link'], 'sitetext': l['sitetext']})
             self.data.append(repr(candidate_data))
             self.target.append(category_dict[transform(l['class'])])
             self.target_names.add(transform(l['class']))
             self.link.append(l['link'])
-        self.data.append(repr({'uid':'','link':'websitemywebsite','name':'','state':'', 'office_level':'','electoral_district_type':'','electoral_district_name':'','sitetext':''}))
+        self.data.append(repr({'uid': '',
+                               'link': 'websitemywebsite',
+                               'name': '',
+                               'state': '',
+                               'office_level': '',
+                               'electoral_district_type': '',
+                               'electoral_district_name': '',
+                               'sitetext': ''}))
         self.target.append(2)
         self.target_names.add('grooon')
         self.link.append('nothing')
-class DBSiteData:
-    def __init__(self, table_name, connection, categories):
-        self.data = []
-        self.target = []
-        self.target_names = set()
-        cursor = connection.cursor()
-        cursor.execute('select class, sitetext from {table};'.format(table=table_name))
-        r = cursor.fetchall()
-        category_dict = dict((categories[i],i) for i in range(len(categories)))
-        for t,d in r:
-            self.target.append(category_dict[t])
-            self.target_names.add(t)
-            self.data.append(d)
-dict_columns = ('name','electoral_district_type','electoral_district_name','state','office_level')
-partial_candidate_dict = dict((l['identifier'],dict((dc, l[dc]) for dc in dict_columns)) for l in csv.DictReader(open('fb/fbcands.csv')))
-full_candidate_dict = dict((l['identifier'],dict((dc, l[dc]) for dc in dict_columns)) for l in csv.DictReader(open('fb/fullfbcands.csv')))
+
 
 categories = [
         'FalseCombined',

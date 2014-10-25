@@ -25,7 +25,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
 
     candidate, last, first = conversions.clean_name(candidate)
     candidate = '+'.join(candidate.split(' '))
-    print candidate
+    #print candidate
 
     search_urls = []
     precise_searches = []
@@ -56,7 +56,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
 
     precise_searches = [s.encode(chardet.detect(s.encode('utf-8'))['encoding']) for s in precise_searches]
     
-    print 'SEARCH_URLS: {}'.format(search_urls)
+    #print 'SEARCH_URLS: {}'.format(search_urls)
     old_webpage = webpage
     if webpage != 'www.gernensamples.com':
         webpage = conversions.get_redirect(webpage)
@@ -125,7 +125,6 @@ def getlinks(candidate, webpage, state, district_type, district_name):
 
 #    print 'RESULTS:{}'.format(results)
     if type(results) != list:
-        print type(results)
         results = [results]
 
     real_results = [(r if 'items' in r else {'items': []}) for r in results]
@@ -145,7 +144,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
         ] for r in results
     ]
 
-    print 'SL:{}'.format(search_links)
+   # print 'SL:{}'.format(search_links)
     for ri in range(len(search_links)):
         for si in range(len(search_links[ri])):
             for r in precise_results:
@@ -242,8 +241,8 @@ def convert_pagemap_dict(item):
 
 lock = Lock()
 def runit(l, uid):
-    print 'ok'
-    print l['Website']
+    #print 'ok'
+    #print l['Website']
     try:
         non_webpage_list, search_success_vector, webpage,sl,st,items,sc,cs,ct,cc,child_links, child_text = getlinks(
             l['Candidate Name'].decode('utf-8').strip(),
@@ -265,7 +264,7 @@ if __name__ == '__main__':
         full = 'full'
     else:
         full = ''
-    with open('web/{full}webcands.csv'.format(full=full)) as f, open('web/non/{full}webnonwebpages.csv'.format(full=full),'w') as g, open('web/non/{full}webwebpage_ssv.csv'.format(full=full),'w') as h, open('web/{full}websearch_results.csv'.format(full=full),'w') as k, open('web/{full}websearch_results_combined.csv'.format(full=full),'w') as m:
+    with open('web/{full}webcands.csv'.format(full=full), 'rU') as f, open('web/non/{full}webnonwebpages.csv'.format(full=full),'w') as g, open('web/non/{full}webwebpage_ssv.csv'.format(full=full),'w') as h, open('web/{full}websearch_results.csv'.format(full=full),'w') as k, open('web/{full}websearch_results_combined.csv'.format(full=full),'w') as m:
         csvr = csv.DictReader(f)
         csvw = csv.writer(g)
         csvw2 = csv.writer(h)
@@ -278,7 +277,7 @@ if __name__ == '__main__':
         search_rows_written = [0]
         pool = Pool(processes=20)
         def callb(results):
-            print 'callb'
+            #print 'callb'
             uid,nwl,ssv,webpage,sl,st,items,sc,cs,ct,cc,child_links,child_text = results
             #uid = results[0]
             #nwl = results[1]

@@ -32,7 +32,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
     # Candidate name
     candidate, last, first = conversions.clean_name(candidate)
     candidate = '+'.join(candidate.split(' '))
-    print 'CANDIDATE: {}'.format(candidate)
+    #print 'CANDIDATE: {}'.format(candidate)
 
     # Setup search urls
     search_urls = []
@@ -89,7 +89,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
         ) for s in extra_children_searches
     ]
 
-    print 'SEARCH_URLS: {}'.format(search_urls)
+    #print 'SEARCH_URLS: {}'.format(search_urls)
 
     precise_searches = [
         s.encode(
@@ -106,7 +106,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
     if webpage != 'www.gernensamples.com':
         webpage = conversions.get_redirect(webpage)
 
-    print 'WBBPAGES: {}'.format(webpage)
+    #print 'WBBPAGES: {}'.format(webpage)
 
     has_webpage = True
     if webpage == '404' or webpage == 'ERROR':
@@ -117,7 +117,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
     # Cleanup web pages by removing protocol, subdomain, and trailing '/'
 
     if has_webpage:
-        print has_webpage
+        #print has_webpage
         webpage_stripped = re.match(
             r'(?:https?://)?(?:www\.)?(?P<content>.+)', webpage
         ).groupdict()['content'].rstrip('/')
@@ -135,7 +135,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
 
         old_webpage_no_queries = ul.urlparse.urlparse(old_webpage)
         
-        print 'NO:{}'.format(old_webpage_no_queries)
+        #print 'NO:{}'.format(old_webpage_no_queries)
         if old_webpage_no_queries is not None:
             old_webpage_no_queries = re.match(
                 r'(?:www\.)?(?P<content>.+)',
@@ -169,8 +169,8 @@ def getlinks(candidate, webpage, state, district_type, district_name):
     n = 4
     while True:
         results = map(lambda x: json.loads(requests.get(x).text), search_urls)
-        for r in results:
-            print 'error' in r
+        #for r in results:
+        #    print 'error' in r
         if any(map(
                 lambda r: ('error' in r and (
                     r['error']['code'] == 403 or r['error']['code'] == 503)
@@ -237,7 +237,6 @@ def getlinks(candidate, webpage, state, district_type, district_name):
 
   
     if type(results) != list:
-        print type(results)
         results = [results]
 
     # Get results from the "items" key and store it in the results variable
@@ -246,7 +245,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
     ]
     results = real_results
 
-    print 'RESULTS:{}'.format(results)
+    # print 'RESULTS:{}'.format(results)
     # Get the result URLs, Extract searchable text from the pagemap
     search_links = [[i['link'].lower() for i in r['items']] for r in results]
     search_text = [
@@ -456,8 +455,8 @@ lock = Lock()
 
 def runit(l, uid):
     #print '---------START----------------'
-    print l.keys()
-    print 'FACEBOOK: {}'.format(l['Facebook URL'])
+    #print l.keys()
+    #print 'FACEBOOK: {}'.format(l['Facebook URL'])
     #print l['name']
     try:
         non_webpage_list, search_success_vector, webpage, sl, st, items, sc, cs, ct, cc, child_links, child_text = getlinks(

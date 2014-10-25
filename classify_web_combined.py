@@ -84,7 +84,7 @@ class SiteData:
 
     def __init__(self, filename, categories, candidate_data_dict):
 
-        print filename
+#        print filename
 #        print candidate_data_dict['GA201400300'].keys()
         self.data = []
         self.target = []
@@ -100,7 +100,7 @@ class SiteData:
         csvr = csv.DictReader(open(filename, 'rU'))
 
         for l in csvr:
-            print l.keys()
+            # print l.keys()
             if 'uid' in l and l['uid'] not in candidate_data_dict:
                 continue
             candidate_data = dict(candidate_data_dict[l['uid']])
@@ -164,9 +164,9 @@ categories = [
 print "Loading 20 newsgroups dataset for categories:"
 print categories if categories else "all"
 
-data_train = SiteData('web/websearch_results_combined_train.csv',
+data_train = SiteData('web/websearch_results_combined_train1.csv',
                       categories, partial_candidate_dict)
-data_test = SiteData('web/websearch_results_combined_test.csv',
+data_test = SiteData('web/websearch_results_combined_test1.csv',
                      categories, partial_candidate_dict)
 
 if opts.full:
@@ -211,9 +211,7 @@ def analyze(s):
     electoral_district_type = d['electoral_district_type']
     electoral_district_name = d['electoral_district_name']
     state = d['state']
-    print d['sitetext']
     text = d['sitetext'].lower().decode('utf-8')
-    print repr(text)
     name, last, first = conv.clean_name(name)
 
     for v in vocabulary:
@@ -393,7 +391,7 @@ header = []
 results = []
 for clf, name in (
         (RidgeClassifier(tol=1e-3,
-                         class_weight={1: 1, 2: 5, 3: .0001}
+                         class_weight={0: 1, 1: 5, 2: .0001}
                          ), "Ridge Classifier"),
         (Perceptron(n_iter=50), "Perceptron"),
         (KNeighborsClassifier(n_neighbors=10), "kNN")
@@ -528,10 +526,10 @@ with open('web/test_classifier_outs.csv','w') as clouts, (open('web/full_classif
     for i in range(3):
         score_dists.append(np.array(df_avgs)[np.array(map(lambda x:x==i,data_test.target))])
         fits.append(get_fit(score_dists[i]))
-        hist(score_dists[i],normed=1)
+        #hist(score_dists[i], normed=1)
         plot(arange(min(score_dists[i]),max(score_dists[i]),.01),fits[i](arange(min(score_dists[i]),max(score_dists[i]),.01)))
         savefig('hist{i}.png'.format(i=i))
-        clearfig()
+        #clearfig()
     for i in range(12):
         tps = test_predictions[i]
         for j in range(3):
