@@ -80,9 +80,12 @@ class SiteData:
         self.target = []
         self.link = []
         self.target_names = set()
+
         category_dict = dict((categories[i],i) for i in range(len(categories)))
         transform = lambda cl: 'TrueCombined' if cl=='ChildCombined' or cl=='ParentCombined' else cl
+
         csvr = csv.DictReader(open(filename))
+
         for l in csvr:
             if not candidate_data_dict.has_key(l['uid']):
                 continue
@@ -105,6 +108,37 @@ class SiteData:
         self.link.append('nothing')
 
 
+translate_level = {
+    'country': 'state',
+    'administrativeArea1': 'state',
+    'administrativeArea2': 'county',
+    'locality': 'city',
+    'regional': 'state',
+    'special': 'state'
+}
+
+#TODO REWRITE
+partial_candidate_dict = {}
+for row in csv.DictReader(open('fb/facebook_training.csv', 'rU')):
+    partial_candidate_dict[row['UID']] = {
+        'name': row['Candidate Name'],
+        'electoral_district_type': row['type'],
+        'electoral_district_name': row['name'],
+        'state': row['State'],
+        'office_level': translate_level[row['level']]
+    }
+
+full_candidate_dict = {}
+for row in csv.DictReader(open('fb/facebook_nosocial.csv', 'rU')):
+    full_candidate_dict[row['UID']] = {
+        'name': row['Candidate Name'],
+        'electoral_district_type': row['type'],
+        'electoral_district_name': row['name'],
+        'state': row['State'],
+        'office_level': translate_level[row['level']]
+    }
+
+
 categories = [
         'FalseCombined',
         'TrueCombined',
@@ -113,14 +147,21 @@ categories = [
 print "Loading 20 newsgroups dataset for categories:"
 print categories if categories else "all"
 
-data_train = SiteData('fb/fbsearch_results_combined_train.csv', categories, partial_candidate_dict)
-data_test = SiteData('fb/fbsearch_results_combined_test.csv', categories, partial_candidate_dict)
+
+data_train = SiteData('fb/TRAINING_FB.csv',
+                      categories, partial_candidate_dict)
+data_test = SiteData('fb/TEST_FB.csv',
+                     categories, partial_candidate_dict)
 
 if opts.full:
     data_full = []
-    num_full=16
+    num_full = 20
     for file_counter in range(num_full):
-        data_full.append(SiteData('fb/srsplit/fullfbsearch_results_combined{i:02d}'.format(i=file_counter),categories, full_candidate_dict))
+        data_full.append(
+            SiteData('fb/srsplit/SPLIT_{}_fullfbsearch_results_combined.csv'.format(file_counter), categories, full_candidate_dict)
+        )
+        
+     #   data_full.append(SiteData('fb/srsplit/fullfbsearch_results_combined{i:02d}'.format(i=file_counter),categories, full_candidate_dict))
 """
 data_train = fetch_20newsgroups(subset='train', categories=categories,
                                shuffle=True, random_state=42)
@@ -130,7 +171,7 @@ data_test = fetch_20newsgroups(subset='test', categories=categories,
 """
 print 'data loaded'
 import conversions as conv
-from ersatzpg.utffile import utffile
+from utffile import utffile
 special_terms = []
 vocabulary = []
 basic_vectorizer = TfidfVectorizer(sublinear_tf=True, max_df=0.5, use_idf=False,
@@ -142,12 +183,15 @@ with utffile('searchterms.csv') as f:
             special_terms.append(s.strip('<>'))
         else:
             vocabulary.append(s.decode('utf-8').strip())
+
+#FIX
+"""
 fb_page_data = {}
 with open('fb/facebookpolsurls_bkp.csv') as f:
     csvr = csv.DictReader(f)
     for l in csvr:
         fb_page_data.update({l['url']:{'fans':l['Fan Count'].replace(',',''),'authentic':l['Authentic Category']}})
-
+"""
 def analyze(s):
     d=eval(s)
     special_keys = []
@@ -192,6 +236,8 @@ def analyze(s):
     special_keys += [conv.search_to_feature_key('officename')]*sum(text.count(on.lower()) for on in conv.office_names)
     special_keys += [conv.search_to_feature_key('electoral_district_name')]*text.count(electoral_district_name.lower())
     special_keys += [conv.search_to_feature_key('state')]*text.count(state.lower())
+    """
+    # NO FB FILE AT THE MOMENT
     if fb_page_data.has_key(conv.strip_and_std(link)):
         fb_page_dict = fb_page_data[conv.strip_and_std(link)]
         special_keys.append(conv.search_to_feature_key('fbdata'))
@@ -199,6 +245,7 @@ def analyze(s):
         special_keys += [conv.search_to_feature_key('fbdata')]*fans
         if fb_page_dict['authentic'] == 'Authentic':
             special_keys.append(conv.search_to_feature_key('fbauthentic'))
+    """
     name_key = conv.search_to_feature_key('name')
     last_key = conv.search_to_feature_key('last')
     first_key = conv.search_to_feature_key('first')
@@ -344,7 +391,7 @@ def benchmark(clf):
 
 header = []
 results = []
-for clf, name in ((RidgeClassifier(tol=1e-3,class_weight={1:1,2:5,3:.0001}), "Ridge Classifier"),
+for clf, name in ((RidgeClassifier(tol=1e-3,class_weight={0:1, 1:5, 2:.0001}), "Ridge Classifier"),
                   (Perceptron(n_iter=50), "Perceptron"),
                   (KNeighborsClassifier(n_neighbors=10), "kNN")
                   ):
@@ -476,10 +523,10 @@ with open('fb/test_classifier_outs.csv','w') as clouts, (open('fb/full_classifie
     for i in range(3):
         score_dists.append(np.array(df_avgs)[np.array(map(lambda x:x==i,data_test.target))])
         fits.append(get_fit(score_dists[i]))
-        hist(score_dists[i],normed=1)
+        #hist(score_dists[i],normed=1)
         plot(arange(min(score_dists[i]),max(score_dists[i]),.01),fits[i](arange(min(score_dists[i]),max(score_dists[i]),.01)))
         savefig('hist{i}.png'.format(i=i))
-        clearfig()
+        #clearfig()
     for i in range(12):
         tps = test_predictions[i]
         for j in range(3):
@@ -513,6 +560,7 @@ with open('fb/test_classifier_outs.csv','w') as clouts, (open('fb/full_classifie
                     csvfull.writerow(['{0:1.5f}'.format(cps[1]),sum(map(lambda x: -1 if x==2 else x,r[:-3]))]+map(str,r[:-3]) + [r[-3],eval(r[-1])['uid'],r[-2],eval(r[-1])['office_level']])
             except Exception as error:
                 import pdb;pdb.set_trace()
+
 for k,v in aggregate_confusions.iteritems():
     print k
     print np.array_repr(v,precision=0,suppress_small=True)

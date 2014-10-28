@@ -131,25 +131,35 @@ class SiteData:
 #dict_columns = ('name', 'electoral_district_type',
 #                'electoral_district_name',
 #                'state', 'office_level')
+
+translate_level = {
+    'country': 'state',
+    'administrativeArea1': 'state',
+    'administrativeArea2': 'county',
+    'locality': 'city',
+    'regional': 'state',
+    'special': 'state'
+}
+
 #TODO REWRITE
 partial_candidate_dict = {}
-for row in csv.DictReader(open('web/webcands.csv', 'rU')):
+for row in csv.DictReader(open('web/oldwebcands.csv', 'rU')):
     partial_candidate_dict[row['UID']] = {
         'name': row['Candidate Name'],
         'electoral_district_type': row['type'],
         'electoral_district_name': row['name'],
         'state': row['State'],
-        'office_level': ''  # figure out how to translate this, then populate
+        'office_level': translate_level[row['level']]
     }
 
 full_candidate_dict = {}
-for row in csv.DictReader(open('web/fullwebcands.csv', 'rU')):
+for row in csv.DictReader(open('web/website_nosocial.csv', 'rU')):
     full_candidate_dict[row['UID']] = {
         'name': row['Candidate Name'],
         'electoral_district_type': row['type'],
         'electoral_district_name': row['name'],
         'state': row['State'],
-        'office_level': ''  # figure out how to translate this, then populate
+        'office_level': translate_level[row['level']]
     }
 
 #partial_candidate_dict = dict((l['identifier'], dict((dc, l[dc]) for dc in dict_columns)) for l in csv.DictReader(open('web/webcands.csv')))
@@ -171,12 +181,14 @@ data_test = SiteData('web/websearch_results_combined_test1.csv',
 
 if opts.full:
     data_full = []
-    num_full = 17
+    #    num_full = 17
+    num_full = 20
+    
     for file_counter in range(num_full):
         data_full.append(
-            SiteData('web/srsplit/fullwebsearch_results_combined{i: 02d}'.format(i=file_counter), categories, full_candidate_dict)
+            SiteData('web/srsplit/SPLIT_{}_fullwebsearch_results_combined.csv'.format(file_counter), categories, full_candidate_dict)
         )
-
+    #        SiteData('web/srsplit/fullwebsearch_results_combined{i: 02d}'.format(i=file_counter), categories, full_candidate_dict)
 """
 data_train = fetch_20newsgroups(subset='train', categories=categories,
                                shuffle=True, random_state=42)

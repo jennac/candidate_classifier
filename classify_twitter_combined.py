@@ -70,13 +70,13 @@ categories = [
 # Uncomment the following to do the analysis on all the categories
 #categories = None
 
-from collections import defaultdict
 class SiteData:
     def __init__(self, filename, categories, candidate_data_dict):
         self.data = []
         self.target = []
         self.link = []
         self.target_names = set()
+
         category_dict = dict((categories[i],i) for i in range(len(categories)))
         transform = lambda cl: 'TrueCombined' if cl=='ChildCombined' or cl=='ParentCombined' else cl
         csvr = csv.DictReader(open(filename))
@@ -89,26 +89,54 @@ class SiteData:
             self.target.append(category_dict[transform(l['class'])])
             self.target_names.add(transform(l['class']))
             self.link.append(l['link'])
-        self.data.append(repr({'uid':'','link':'websitemywebsite','name':'','state':'', 'office_level':'','electoral_district_type':'','electoral_district_name':'','sitetext':''}))
+        self.data.append(repr({'uid': '',
+                               'link': 'websitemywebsite',
+                               'name': '',
+                               'state': '',
+                               'office_level': '',
+                               'electoral_district_type': '',
+                               'electoral_district_name': '',
+                               'sitetext': ''}
+                          ))
         self.target.append(2)
         self.target_names.add('grooon')
         self.link.append('nothing')
-class DBSiteData:
-    def __init__(self, table_name, connection, categories):
-        self.data = []
-        self.target = []
-        self.target_names = set()
-        cursor = connection.cursor()
-        cursor.execute('select class, sitetext from {table};'.format(table=table_name))
-        r = cursor.fetchall()
-        category_dict = dict((categories[i],i) for i in range(len(categories)))
-        for t,d in r:
-            self.target.append(category_dict[t])
-            self.target_names.add(t)
-            self.data.append(d)
-dict_columns = ('name','electoral_district_type','electoral_district_name','state','office_level')
-partial_candidate_dict = dict((l['identifier'],dict((dc, l[dc]) for dc in dict_columns)) for l in csv.DictReader(open('twitter/twittercands.csv')))
-full_candidate_dict = dict((l['identifier'],dict((dc, l[dc]) for dc in dict_columns)) for l in csv.DictReader(open('twitter/fulltwittercands.csv')))
+
+#dict_columns = ('name','electoral_district_type','electoral_district_name','state','office_level')
+#partial_candidate_dict = dict((l['identifier'],dict((dc, l[dc]) for dc in dict_columns)) for l in csv.DictReader(open('twitter/twittercands.csv')))
+#full_candidate_dict = dict((l['identifier'],dict((dc, l[dc]) for dc in dict_columns)) for l in csv.DictReader(open('twitter/fulltwittercands.csv')))
+
+
+translate_level = {
+    'country': 'state',
+    'administrativeArea1': 'state',
+    'administrativeArea2': 'county',
+    'locality': 'city',
+    'regional': 'state',
+    'special': 'state'
+}
+
+#TODO REWRITE
+partial_candidate_dict = {}
+for row in csv.DictReader(open('fb/facebook_training.csv', 'rU')):
+    partial_candidate_dict[row['UID']] = {
+        'name': row['Candidate Name'],
+        'electoral_district_type': row['type'],
+        'electoral_district_name': row['name'],
+        'state': row['State'],
+        'office_level': translate_level[row['level']]
+    }
+
+full_candidate_dict = {}
+for row in csv.DictReader(open('fb/facebook_nosocial.csv', 'rU')):
+    full_candidate_dict[row['UID']] = {
+        'name': row['Candidate Name'],
+        'electoral_district_type': row['type'],
+        'electoral_district_name': row['name'],
+        'state': row['State'],
+        'office_level': translate_level[row['level']]
+    }
+
 
 categories = [
         'FalseCombined',
@@ -118,14 +146,14 @@ categories = [
 print "Loading 20 newsgroups dataset for categories:"
 print categories if categories else "all"
 
-data_train = SiteData('twitter/twittersearch_results_combined_train.csv', categories, partial_candidate_dict)
-data_test = SiteData('twitter/twittersearch_results_combined_test.csv', categories, partial_candidate_dict)
+data_train = SiteData('twitter/TRAINING_TWITTER.csv', categories, partial_candidate_dict)
+data_test = SiteData('twitter/TEST_TWITTER.csv', categories, partial_candidate_dict)
 
 if opts.full:
     data_full = []
-    num_full=15
+    num_full = 20
     for file_counter in range(num_full):
-        data_full.append(SiteData('twitter/srsplit/fulltwittersearch_results_combined{i:02d}'.format(i=file_counter),categories, full_candidate_dict))
+        data_full.append(SiteData('twitter/srsplit/SPLIT_{}_fulltwittersearch_results_combined.csv'.format(file_counter), categories, full_candidate_dict))
 """
 data_train = fetch_20newsgroups(subset='train', categories=categories,
                                shuffle=True, random_state=42)
@@ -135,7 +163,7 @@ data_test = fetch_20newsgroups(subset='test', categories=categories,
 """
 print 'data loaded'
 import conversions as conv
-from ersatzpg.utffile import utffile
+from utffile import utffile
 special_terms = []
 vocabulary = []
 basic_vectorizer = TfidfVectorizer(sublinear_tf=True, max_df=0.5, use_idf=False,
@@ -244,7 +272,6 @@ if opts.select_chi2:
         for file_counter in range(num_full):
             X_full[file_counter] = ch2.transform(X_full[file_counter])
     print "done in %fs" % (time() - t0)
-    print
 
 
 def trim(s):
@@ -333,7 +360,7 @@ def benchmark(clf):
 
 header = []
 results = []
-for clf, name in ((RidgeClassifier(tol=1e-3,class_weight={1:1,2:5,3:.0001}), "Ridge Classifier"),
+for clf, name in ((RidgeClassifier(tol=1e-3,class_weight={0:1, 1:5, 2:.0001}), "Ridge Classifier"),
                   (Perceptron(n_iter=50), "Perceptron"),
                   (KNeighborsClassifier(n_neighbors=10), "kNN")
                   ):
@@ -465,10 +492,10 @@ with open('twitter/test_classifier_outs.csv','w') as clouts, (open('twitter/full
     for i in range(3):
         score_dists.append(np.array(df_avgs)[np.array(map(lambda x:x==i,data_test.target))])
         fits.append(get_fit(score_dists[i]))
-        hist(score_dists[i],normed=1)
+        #hist(score_dists[i],normed=1)
         plot(arange(min(score_dists[i]),max(score_dists[i]),.01),fits[i](arange(min(score_dists[i]),max(score_dists[i]),.01)))
         savefig('hist{i}.png'.format(i=i))
-        clearfig()
+        #clearfig()
     for i in range(12):
         tps = test_predictions[i]
         for j in range(3):

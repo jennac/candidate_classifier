@@ -100,18 +100,12 @@ def getlinks(candidate, webpage, state, district_type, district_name):
     # This must be  a test for a dummy webside used for testing
     # get_redirect simply gets the final page that returns a 200
     old_webpage = webpage
-    if old_webpage is None:
-        return None 
-
     if webpage != 'www.gernensamples.com':
         webpage = conversions.get_redirect(webpage)
 
     #print 'WBBPAGES: {}'.format(webpage)
 
     has_webpage = True
-    if webpage == '404' or webpage == 'ERROR':
-        has_webpage = False
-        print 'oh'
     #    raise Exception  # why do we need this exception??
     # print 'ok?'
     # Cleanup web pages by removing protocol, subdomain, and trailing '/'
@@ -486,21 +480,22 @@ if __name__ == '__main__':
         full = 'full'
     else:
         full = ''
-    with open('fb/{full}fbcands.csv'.format(full=full), 'rU') as f,\
-        open('fb/non/{full}fbnonwebpages.csv'.format(full=full), 'w') as g,\
-        open('fb/non/{full}fbwebpage_ssv.csv'.format(full=full), 'w') as h,\
-        open('fb/{full}fbsearch_results.csv'.format(full=full), 'w') as k,\
-        open('fb/{full}fbsearch_results_combined.csv'.format(full=full), 'w') as m:  # noqa
+    filename = sys.argv[1]
+    with open('fb/{filename}'.format(filename=filename), 'rU') as f,\
+        open('fb/non/{full}fbnonwebpages.csv'.format(full=full), 'a') as g,\
+        open('fb/non/{full}fbwebpage_ssv.csv'.format(full=full), 'a') as h,\
+        open('fb/{full}fbsearch_results.csv'.format(full=full), 'a') as k,\
+        open('fb/{full}fbsearch_results_combined.csv'.format(full=full), 'a') as m:  # noqa
 
         csvr = csv.DictReader(f)
         csvw = csv.writer(g)
         csvw2 = csv.writer(h)
         csvw3 = csv.writer(k)
         csvw4 = csv.writer(m)
-        csvw.writerow(['uid', 'webpage', 'non_webpage_list'])
-        csvw2.writerow(['uid', 'webpage', 'search_success_vector'])
-        csvw3.writerow(['uid', 'link', 'class', 'sitetext', 'items'])
-        csvw4.writerow(['uid', 'link', 'class', 'sitetext'])
+        #csvw.writerow(['uid', 'webpage', 'non_webpage_list'])
+        #csvw2.writerow(['uid', 'webpage', 'search_success_vector'])
+        #csvw3.writerow(['uid', 'link', 'class', 'sitetext', 'items'])
+        #csvw4.writerow(['uid', 'link', 'class', 'sitetext'])
         search_rows_written = [0]
         pool = Pool(processes=20)
 

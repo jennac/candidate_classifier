@@ -10,6 +10,7 @@ import time
 
 import urllib2 as ul
 
+import multiprocessing
 from multiprocessing import Pool, Lock
 from state_map import state_map
 
@@ -28,7 +29,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
     # Candidate Name
     candidate, last, first = conversions.clean_name(candidate)
     candidate = '+'.join(candidate.split(' '))
-    print candidate
+    #print candidate
 
     # Search URLs
     search_urls = []
@@ -37,6 +38,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
 
     url = 'https://www.googleapis.com/customsearch/v1'
     cx = '011743744063680272768:xcugk1a_1t0'
+    #cx = '009761440872559920339:eqjjlrdgzma'
     key = 'AIzaSyCdHlGJuMzGBH9hNsEMObffDIkzJ44EQhA&hl'
 
     # Create search URLs
@@ -73,7 +75,9 @@ def getlinks(candidate, webpage, state, district_type, district_name):
 
     # ?? Some sort of test?
     webpage = conversions.twitter_handle_to_web(webpage)
+    print webpage
     old_webpage = webpage
+
 
     if webpage != 'www.gernensamples.com':
         webpage = conversions.get_redirect(webpage)
@@ -81,8 +85,8 @@ def getlinks(candidate, webpage, state, district_type, district_name):
     # if webpage == '404' or webpage == 'ERROR':
         # raise Exception
 
-    print search_urls
-    print precise_searches
+    #print search_urls
+    #print precise_searches
     webpage_stripped = re.match(
         r'(?:https?://)?(?:www\.)?(?P<content>.+)', webpage
     ).groupdict()['content'].rstrip('/')
@@ -116,6 +120,7 @@ def getlinks(candidate, webpage, state, district_type, district_name):
         )
     )
 
+    print 'searching'
     # Timeout work
     n = 4
     while True:
@@ -155,9 +160,9 @@ def getlinks(candidate, webpage, state, district_type, district_name):
             ))
         else:
             break
+    print 'done searching'
 
     if type(results) != list:
-        print type(results)
         results = [results]
 
     # Get results
@@ -317,8 +322,10 @@ lock = Lock()
 
 
 def runit(l, uid):
+    name = multiprocessing.current_process().name
+    print '{} process is starting on {}'.format(name, uid)
 
-    print l['Twitter Name']
+    #print l['Twitter Name']
 
     try:
         non_webpage_list, search_success_vector, webpage, sl, st, items, sc, cs, ct, cc, child_links, child_text = getlinks(
@@ -329,7 +336,8 @@ def runit(l, uid):
             l['name'].decode('utf-8').strip()
         )
 
-        print uid, len(non_webpage_list[0]), len(sl[0]), len(st[0]), len(items[0]), len(sc[0]), len(cs[0]), len(ct[0]), len(cc[0]), len(child_links), len(child_text)
+        print 'UID:{}\nNON_WEBPAGE:{}\nSL:{}\nST:{}\nITEMS:{}\nSC:{}\nCS:{}\nCT:{}\nCC:{}\nCHILD LINKS:{}\nCHILD TEXT:{}\n\n'.format(uid,len(non_webpage_list[0]),len(sl[0]),len(st[0]),len(items[0]),len(sc[0]),len(cs[0]),len(ct[0]),len(cc[0]),len(child_links),len(child_text))
+#        print uid, len(non_webpage_list[0]), len(sl[0]), len(st[0]), len(items[0]), len(sc[0]), len(cs[0]), len(ct[0]), len(cc[0]), len(child_links), len(child_text)
     except Exception as error:
         import traceback; print traceback.format_exc()
         print error
@@ -345,51 +353,58 @@ if __name__ == '__main__':
         full = 'full'
     else:
         full = ''
+    filename = sys.argv[1]
 
-    with open('twitter/{full}twittercands.csv'.format(full=full)) as f, open('twitter/non/{full}twitternonwebpages.csv'.format(full=full),'w') as g, open('twitter/non/{full}twitterwebpage_ssv.csv'.format(full=full),'w') as h, open('twitter/{full}twittersearch_results.csv'.format(full=full),'w') as k, open('twitter/{full}twittersearch_results_combined.csv'.format(full=full),'w') as m:
+    with open('twitter/{filename}'.format(filename=filename)) as f, open('twitter/non/{full}twitternonwebpages.csv'.format(full=full),'a') as g, open('twitter/non/{full}twitterwebpage_ssv.csv'.format(full=full),'a') as h, open('twitter/{full}twittersearch_results.csv'.format(full=full),'a') as k, open('twitter/{full}twittersearch_results_combined.csv'.format(full=full),'a') as m:
         csvr = csv.DictReader(f)
         csvw = csv.writer(g)
         csvw2 = csv.writer(h)
         csvw3 = csv.writer(k)
         csvw4 = csv.writer(m)
-        csvw.writerow(['uid', 'webpage', 'non_webpage_list'])
-        csvw2.writerow(['uid', 'webpage', 'search_success_vector'])
-        csvw3.writerow(['uid', 'link', 'class', 'sitetext', 'items'])
-        csvw4.writerow(['uid', 'link', 'class', 'sitetext'])
+        #csvw.writerow(['uid', 'webpage', 'non_webpage_list'])
+        #csvw2.writerow(['uid', 'webpage', 'search_success_vector'])
+        #csvw3.writerow(['uid', 'link', 'class', 'sitetext', 'items'])
+        #csvw4.writerow(['uid', 'link', 'class', 'sitetext'])
 
         search_rows_written = [0]
         pool = Pool(processes=20)
 
         def callb(results):
             uid, nwl, ssv, webpage, sl, st, items, sc, cs, ct, cc, child_links, child_text = results
+            #print 'callback on {}'.format(uid)
+                        
             lock.acquire()
+            #print 'LOCK AQUIRED'
             csvw.writerow([uid, webpage, nwl])
             csvw2.writerow([uid, webpage, ssv])
             global csvw3
             rotate = False
-            for i in range(len(sl)):
-                for j in range(len(sl[i])):
-                    csvw3.writerow([uid, sl[i][j], sc[i][j],
-                                    st[i][j], repr(items[i][j])])
-                    search_rows_written[0] += 1
-                    if search_rows_written[0] % 1000 == 0:
-                        rotate = True
-            for i in range(len(child_links)):
-                csvw3.writerow([uid, child_links[i], 'Info',
-                                child_text[i], ''])
-            if rotate:
-                pass
+            try:
+                for i in range(len(sl)):
+                    for j in range(len(sl[i])):
+                        csvw3.writerow([uid, sl[i][j], sc[i][j],
+                                        st[i][j], repr(items[i][j])])
+                        search_rows_written[0] += 1
+                        if search_rows_written[0] % 1000 == 0:
+                            rotate = True
+                for i in range(len(child_links)):
+                    csvw3.writerow([uid, child_links[i], 'Info',
+                                    child_text[i], ''])
+                if rotate:
+                    pass
 
-            search_rows_written[0] = 0
-            for i in range(len(cs)):
-                for j in range(len(cs[i])):
-                    csvw4.writerow([uid, cs[i][j], cc[i][j], ct[i][j]])
-                    search_rows_written[0] += 1
-                    if search_rows_written[0] % 1000 == 0:
-                        rotate = True
-            if rotate:
-                pass
-            lock.release()
+                search_rows_written[0] = 0
+                for i in range(len(cs)):
+                    for j in range(len(cs[i])):
+                        csvw4.writerow([uid, cs[i][j], cc[i][j], ct[i][j]])
+                        search_rows_written[0] += 1
+                        if search_rows_written[0] % 1000 == 0:
+                            rotate = True
+                if rotate:
+                    pass
+            finally:
+                lock.release()
+                #print 'LOCK RELEASED'
         for l in csvr:
             uid = l['UID']
             # callb(runit(l,uid))

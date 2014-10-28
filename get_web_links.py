@@ -264,16 +264,19 @@ if __name__ == '__main__':
         full = 'full'
     else:
         full = ''
-    with open('web/{full}webcands.csv'.format(full=full), 'rU') as f, open('web/non/{full}webnonwebpages.csv'.format(full=full),'w') as g, open('web/non/{full}webwebpage_ssv.csv'.format(full=full),'w') as h, open('web/{full}websearch_results.csv'.format(full=full),'w') as k, open('web/{full}websearch_results_combined.csv'.format(full=full),'w') as m:
+    filename = sys.argv[1]
+
+    with open('web/{filename}'.format(filename=filename), 'rU') as f, open('web/non/{full}webnonwebpages.csv'.format(full=full),'a') as g, open('web/non/{full}webwebpage_ssv.csv'.format(full=full),'a') as h, open('web/{full}websearch_results.csv'.format(full=full),'a') as k, open('web/{full}websearch_results_combined.csv'.format(full=full),'a') as m:
         csvr = csv.DictReader(f)
         csvw = csv.writer(g)
         csvw2 = csv.writer(h)
         csvw3 = csv.writer(k)
         csvw4 = csv.writer(m)
-        csvw.writerow(['uid','webpage','non_webpage_list'])
-        csvw2.writerow(['uid','webpage','search_success_vector'])
-        csvw3.writerow(['uid','link','class', 'sitetext','items'])
-        csvw4.writerow(['uid','link','class','sitetext'])
+        # Should uncomment first run.... TODO better system 
+#        csvw.writerow(['uid','webpage','non_webpage_list'])
+#        csvw2.writerow(['uid','webpage','search_success_vector'])
+#        csvw3.writerow(['uid','link','class', 'sitetext','items'])
+#        csvw4.writerow(['uid','link','class','sitetext'])
         search_rows_written = [0]
         pool = Pool(processes=20)
         def callb(results):
