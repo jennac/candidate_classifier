@@ -5,11 +5,14 @@
 This system collects and classifies candidate social media sites.
 
 It is divided into two main steps:
+
 1. Gathering potential sites using the Google Custom Search API and candidate information 
+
 2. Classifying the results as candidate web presence or not
 
 ### Setup
 Install the requirememts file. 
+
 The scripts rely on access to the BIP Production Dropbox folder. 
 That folder holds the flat files which contains all of the candidate data by state.
 There will also be an all_states file, used mostly for splitting files at the end. This is simply all the candidate data combined into one file. 
