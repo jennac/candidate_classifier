@@ -40,7 +40,9 @@ When you run this with the --full argument, you will be running it on live data.
 
 Results will go to X_classifier_outs.py in Dropbox.
 
-## Methodology (designed and described by https://github.com/natgaertner/)
+## Methodology 
+
+(designed and described by https://github.com/natgaertner/)
 
 The classifiers used were from the scikit learn python library (http://scikit-learn.org/0.11/index.html). Their usage was  based on example code here: http://scikit-learn.org/0.11/auto_examples/document_classification_20newsgroups.html . Two significant modifications were made to this code, other than obviously pulling data from this search text collection rather than their sample database:
 
