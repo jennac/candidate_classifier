@@ -37,7 +37,7 @@ def write_file(outfile, fields, data):
             writer.writerow(d)
 
 
-def main():
+def split():
 
     args = get_args()
     split_num = int(args.number)
@@ -46,6 +46,10 @@ def main():
         path = args.path
     else:
         path = ''
+
+    # path = '/Users/jcolazzi/Dropbox/BIP Production/candidates/reports/social/'
+    # path = '/Users/jcolazzi/bip/candidate_classifier/web/srsplit/'
+    path = '/Users/jcolazzi/bip/candidate_classifier/twitter/srsplit/'
 
     fields, data = read_file(path+infile)
 
@@ -56,6 +60,7 @@ def main():
     x = 0
     y = x + m
 
+    print 'SPLITS WILL BE LEN {}'.format(m)
     for i in range(split_num):
         outfile = 'SPLIT_{}_{}'.format(i, infile)
         write_file(path+outfile, fields, data[x:y])
@@ -64,5 +69,6 @@ def main():
         if i == (split_num - 2):
             y += R
 
+
 if __name__ == '__main__':
-    main()
+    split()

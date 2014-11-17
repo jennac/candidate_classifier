@@ -17,6 +17,10 @@ def get_args():
                         help='find website',
                         action='store_true')
 
+    parser.add_argument('-y', '--youtube', 
+                        help='find youtube',
+                        action='store_true')
+
     return parser.parse_args()
 
 
@@ -57,6 +61,9 @@ def main():
     elif args.web:
         social_field = 'Website'
         outfile = 'website_training.csv'
+    elif args.youtube:
+        social_field = 'Youtube'
+        outfile = 'youtube_training.csv'
     else:
         social_field = ''
         outfile = ''
